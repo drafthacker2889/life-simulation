@@ -5,23 +5,44 @@
     <title>Emerging Life Simulation</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Courier New', Courier, monospace; color: #0f0; }
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background: #000; overflow: hidden; 
+            font-family: 'Courier New', Courier, monospace; color: #0f0; 
+        }
         canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
-        #ui { position: absolute; top: 20px; left: 20px; background: rgba(0, 30, 0, 0.9); border: 1px solid #00ffcc; padding: 20px; border-radius: 12px; width: 280px; z-index: 100; backdrop-filter: blur(4px); max-height: 90vh; overflow-y: auto; }
+        
+        /* UI Panel */
+        #ui {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(0, 30, 0, 0.9);
+            border: 1px solid #00ffcc;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+            padding: 20px; border-radius: 12px; width: 280px;
+            z-index: 100; backdrop-filter: blur(4px);
+            max-height: 90vh; overflow-y: auto;
+        }
         h3 { margin: 0 0 15px 0; color: #00ffcc; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; }
         .stat-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
         hr { border: 0; border-top: 1px solid #004433; margin: 15px 0; }
         label { display: block; margin-bottom: 5px; font-size: 12px; color: #aaa; }
         input[type=range] { width: 100%; margin-bottom: 10px; cursor: pointer; accent-color: #00ffcc; }
+        
+        /* Tribe Bars */
         .tribe-bar { height: 6px; border-radius: 3px; margin-top: 2px; transition: width 0.2s; }
         
+        /* Scrollbar styling */
+        #ui::-webkit-scrollbar { width: 6px; }
+        #ui::-webkit-scrollbar-thumb { background: #004433; border-radius: 3px; }
+
         /* INSPECTOR PANEL */
         #inspector {
             position: absolute; top: 20px; right: 20px;
             background: rgba(0, 30, 0, 0.95);
             border: 2px solid #ffcc00;
             padding: 20px; border-radius: 12px; width: 250px;
-            display: none; 
+            display: none; /* Hidden by default */
+            z-index: 100;
         }
         .brain-vis { display: flex; justify-content: space-between; margin-top: 10px; }
         .neuron-col { display: flex; flex-direction: column; justify-content: space-around; height: 150px; }
@@ -33,23 +54,49 @@
     <div id="ui">
         <h3>🧬 Evolution Control</h3>
         <div style="font-size:10px; color:#aaa; margin-bottom:10px;">🖱️ Click Agent to Inspect</div>
-        <div class="stat-row"><span>Avg Energy:</span><span id="val-energy">100</span></div>
+        
+        <div class="stat-row">
+            <span>Avg Energy:</span>
+            <span id="val-energy" style="color: #fff; font-weight: bold;">100</span>
+        </div>
+
         <hr>
         <label>Tribe Population</label>
-        <div class="stat-row"><span style="color:#ff00cc">Pink</span><span id="count-pink">0</span></div>
-        <div class="tribe-bar" id="bar-pink" style="background:#ff00cc; width:0%"></div>
-        <div class="stat-row"><span style="color:#ccff00">Green</span><span id="count-green">0</span></div>
-        <div class="tribe-bar" id="bar-green" style="background:#ccff00; width:0%"></div>
-        <div class="stat-row"><span style="color:#00ccff">Blue</span><span id="count-blue">0</span></div>
-        <div class="tribe-bar" id="bar-blue" style="background:#00ccff; width:0%"></div>
-        <div class="stat-row"><span style="color:#ffcc00">Orange</span><span id="count-orange">0</span></div>
-        <div class="tribe-bar" id="bar-orange" style="background:#ffcc00; width:0%"></div>
+        <div style="margin-bottom: 15px;">
+            <div class="stat-row"><span style="color:#ff00cc">Pink</span><span id="count-pink">0</span></div>
+            <div class="tribe-bar" id="bar-pink" style="background:#ff00cc; width:0%"></div>
+
+            <div class="stat-row" style="margin-top:5px"><span style="color:#ccff00">Green</span><span id="count-green">0</span></div>
+            <div class="tribe-bar" id="bar-green" style="background:#ccff00; width:0%"></div>
+
+            <div class="stat-row" style="margin-top:5px"><span style="color:#00ccff">Blue</span><span id="count-blue">0</span></div>
+            <div class="tribe-bar" id="bar-blue" style="background:#00ccff; width:0%"></div>
+
+            <div class="stat-row" style="margin-top:5px"><span style="color:#ffcc00">Orange</span><span id="count-orange">0</span></div>
+            <div class="tribe-bar" id="bar-orange" style="background:#ffcc00; width:0%"></div>
+        </div>
+
         <hr>
-        <label>Sim Speed</label><input type="range" id="speed" min="1" max="20" value="1">
+        <label>Simulation Speed</label>
+        <input type="range" id="speed" min="1" max="20" value="1">
+        
+        <label>Mutation Rate: <span id="val-mut" style="color:#fff">0.1</span></label>
+        <input type="range" id="mutation" min="0.01" max="1.0" step="0.01" value="0.1">
+
+        <hr>
+
+        <label>Food Count: <span id="val-food" style="color:#fff">100</span></label>
+        <input type="range" id="food" min="10" max="300" step="10" value="100">
+
+        <label>Predator Speed: <span id="val-pred" style="color:#fff">2.2</span></label>
+        <input type="range" id="pred" min="0" max="5.0" step="0.1" value="2.2">
+
+        <label>Repro Threshold: <span id="val-repro" style="color:#fff">60</span></label>
+        <input type="range" id="repro" min="10" max="150" step="5" value="60">
     </div>
 
     <div id="inspector">
-        <h3>🧠 Brain Surgeon</h3>
+        <h3>Brain</h3>
         <div style="font-size:12px; color:#fff;">Agent ID: <span id="agent-id">?</span></div>
         <hr>
         <div style="font-size:10px; text-align:center; color:#aaa;">INPUTS | HIDDEN | OUTPUTS</div>
@@ -68,43 +115,66 @@
 
     <script type="module">
         import init, { Simulation } from './pkg/life_simulation.js';
+
         async function run() {
             await init();
             const canvas = document.getElementById('canvas');
             const ctx = canvas.getContext('2d');
             let size = {w:0, h:0};
-            let sim_zoom = 1.0; let sim_vx = 0.0; let sim_vy = 0.0;
+            let sim_zoom = 1.0; 
+            let sim_vx = 0.0; 
+            let sim_vy = 0.0;
             
             function resize() {
                 const dpr = window.devicePixelRatio || 1;
-                size.w = window.innerWidth * dpr; size.h = window.innerHeight * dpr;
-                canvas.width = size.w; canvas.height = size.h;
-                canvas.style.width = window.innerWidth + "px"; canvas.style.height = window.innerHeight + "px";
+                size.w = window.innerWidth * dpr; 
+                size.h = window.innerHeight * dpr;
+                canvas.width = size.w; 
+                canvas.height = size.h;
+                canvas.style.width = window.innerWidth + "px"; 
+                canvas.style.height = window.innerHeight + "px";
                 if (window.sim) window.sim.resize(size.w, size.h);
             }
-            window.addEventListener('resize', resize); resize();
-            
+            // Init resize
+            resize();
+            window.addEventListener('resize', resize);
+
             const sim = Simulation.new(size.w, size.h);
             window.sim = sim; 
             
+            // Interaction State
             let selectedAgentId = -1;
 
-            canvas.addEventListener('wheel', (e) => { e.preventDefault(); sim_zoom *= e.deltaY > 0 ? 0.9 : 1.1; sim.zoom_at(e.deltaY > 0 ? 0.9 : 1.1); });
+            // Camera Inputs
+            canvas.addEventListener('wheel', (e) => { 
+                e.preventDefault(); 
+                sim_zoom *= e.deltaY > 0 ? 0.9 : 1.1; 
+                sim.zoom_at(e.deltaY > 0 ? 0.9 : 1.1); 
+            });
+            
             let isDragging = false, startX, startY;
-            canvas.addEventListener('mousedown', (e) => { isDragging = true; startX = e.clientX; startY = e.clientY; });
+            canvas.addEventListener('mousedown', (e) => { 
+                isDragging = true; startX = e.clientX; startY = e.clientY; 
+            });
             canvas.addEventListener('mousemove', (e) => { 
                 if (!isDragging) return; 
-                let dx = startX - e.clientX; let dy = startY - e.clientY;
-                sim.pan(dx, dy); sim_vx += dx/sim_zoom; sim_vy += dy/sim_zoom;
+                let dx = startX - e.clientX; 
+                let dy = startY - e.clientY;
+                sim.pan(dx, dy); 
+                sim_vx += dx/sim_zoom; 
+                sim_vy += dy/sim_zoom;
                 startX = e.clientX; startY = e.clientY; 
             });
             window.addEventListener('mouseup', () => isDragging = false);
 
+            // CLICK TO INSPECT
             canvas.addEventListener('click', (e) => {
-                if (isDragging) return; 
+                if (isDragging) return; // Don't inspect if we just dragged
                 const rect = canvas.getBoundingClientRect();
                 const x = (e.clientX - rect.left) * (window.devicePixelRatio||1);
                 const y = (e.clientY - rect.top) * (window.devicePixelRatio||1);
+                
+                // Calculate World Coords approximately based on current view
                 const worldX = (x / sim_zoom) + sim_vx;
                 const worldY = (y / sim_zoom) + sim_vy;
 
@@ -116,24 +186,52 @@
                 }
             });
 
+            // UI Elements
             const elEnergy = document.getElementById('val-energy');
             const sliderSpeed = document.getElementById('speed');
+            const sliderMut = document.getElementById('mutation');
+            const sliderFood = document.getElementById('food');
+            const sliderPred = document.getElementById('pred');
+            const sliderRepro = document.getElementById('repro');
+            
+            // Stats Elements
             const elP = document.getElementById('count-pink'); const barP = document.getElementById('bar-pink');
             const elG = document.getElementById('count-green'); const barG = document.getElementById('bar-green');
             const elB = document.getElementById('count-blue'); const barB = document.getElementById('bar-blue');
             const elO = document.getElementById('count-orange'); const barO = document.getElementById('bar-orange');
 
+            // Events
+            sliderMut.addEventListener('input', (e) => { 
+                document.getElementById('val-mut').innerText = e.target.value; 
+                sim.set_mutation_rate(parseFloat(e.target.value)); 
+            });
+            sliderFood.addEventListener('input', (e) => { 
+                document.getElementById('val-food').innerText = e.target.value; 
+                sim.set_food_count(parseInt(e.target.value)); 
+            });
+            sliderPred.addEventListener('input', (e) => { 
+                document.getElementById('val-pred').innerText = e.target.value; 
+                sim.set_predator_speed(parseFloat(e.target.value)); 
+            });
+            sliderRepro.addEventListener('input', (e) => { 
+                document.getElementById('val-repro').innerText = e.target.value; 
+                sim.set_reproduction_threshold(parseFloat(e.target.value)); 
+            });
+
             function updateInspector() {
                 if (selectedAgentId === -1) return;
                 const brainData = sim.get_agent_brain(selectedAgentId);
-                if (!brainData) return; 
+                if (!brainData) return; // Agent might have died
 
+                // Helper to draw neurons
                 const drawLayer = (id, values) => {
                     const container = document.getElementById(id);
                     container.innerHTML = '';
+                    if(!values) return;
                     values.forEach(v => {
                         const el = document.createElement('div');
                         el.className = 'neuron';
+                        // Visualize: Simple active/inactive
                         if (Math.abs(v) > 0.5) el.classList.add('active');
                         el.style.opacity = Math.abs(v);
                         container.appendChild(el);
@@ -151,9 +249,11 @@
                 sim.draw(ctx);
                 elEnergy.innerText = sim.get_avg_energy().toFixed(1);
                 
+                // Update Tribe Stats (Throttled)
                 if (performance.now() % 50 < 20) {
                     const stats = sim.get_tribe_stats();
-                    const total = 800;
+                    const total = 800; // Approx total for percentages
+                    
                     elP.innerText = stats[0]; barP.style.width = (stats[0]/total*100) + "%";
                     elG.innerText = stats[1]; barG.style.width = (stats[1]/total*100) + "%";
                     elB.innerText = stats[2]; barB.style.width = (stats[2]/total*100) + "%";
