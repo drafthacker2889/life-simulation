@@ -18,22 +18,22 @@ impl Brain {
         let mut weights_output = Vec::new();
         let mut biases = Vec::new();
 
-        // Initialize with random values between -1.0 and 1.0
-        for _ in 0..18 { weights_input.push((Math::random() * 2.0) - 1.0); }
-        for _ in 0..12 { weights_output.push((Math::random() * 2.0) - 1.0); }
-        for _ in 0..8  { biases.push((Math::random() * 2.0) - 1.0); }
+        // 5 Inputs (FoodX, FoodY, Energy, PredX, PredY) * 6 Hidden = 30 weights
+        for _ in 0..30 { weights_input.push((Math::random() * 2.0) - 1.0); } 
+        for _ in 0..12 { weights_output.push((Math::random() * 2.0) - 1.0); } 
+        for _ in 0..8  { biases.push((Math::random() * 2.0) - 1.0); }        
 
         Brain { weights_input, weights_output, biases }
     }
 
-    // FEATURE: Evolution with Dynamic Mutation Rate (from Block 2)
+    // Evolution with Dynamic Mutation Rate
     fn mutate(&self, rate: f64) -> Brain {
-        let mutation_chance = 0.2;
+        let mutation_chance = 0.2; 
 
         let mutate_vec = |vals: &Vec<f64>| -> Vec<f64> {
             vals.iter().map(|&v| {
                 if Math::random() < mutation_chance {
-                    v + (Math::random() * 2.0 - 1.0) * rate // Dynamic rate applied here
+                    v + (Math::random() * 2.0 - 1.0) * rate 
                 } else {
                     v
                 }
@@ -52,7 +52,8 @@ impl Brain {
         let mut hidden = vec![0.0; 6];
         for i in 0..6 {
             let mut sum = 0.0;
-            for j in 0..3 { sum += inputs[j] * self.weights_input[i * 3 + j]; }
+            // Loop 5 times for 5 inputs
+            for j in 0..5 { sum += inputs[j] * self.weights_input[i * 5 + j]; }
             sum += self.biases[i];
             hidden[i] = sum.tanh();
         }
@@ -70,29 +71,28 @@ impl Brain {
 }
 
 // --- THE SIMULATION WORLD ---
-// #[wasm_bindgen] allows JS to create/interact with this struct directly
 #[wasm_bindgen]
 pub struct Simulation {
-    positions: Vec<(f64, f64)>,
+    positions: Vec<(f64, f64)>, 
     angles: Vec<f64>,
     energies: Vec<f64>,
     brains: Vec<Brain>,
-    colors: Vec<String>, // Using String for JS compatibility
+    colors: Vec<String>, 
     
-    food: Vec<(f64, f64)>,
+    food: Vec<(f64, f64)>, 
+    predators: Vec<(f64, f64)>,
+
     width: f64,
     height: f64,
-
-    // FEATURE: Store the mutation rate from the slider
-    mutation_rate: f64,
+    mutation_rate: f64, 
 }
 
 #[wasm_bindgen]
 impl Simulation {
-    // Constructor
     pub fn new(width: f64, height: f64) -> Simulation {
-        let agent_count = 800; 
+        let agent_count = 800;
         let food_count = 80;
+        let predator_count = 5; 
 
         let mut positions = Vec::new();
         let mut angles = Vec::new();
@@ -100,113 +100,170 @@ impl Simulation {
         let mut brains = Vec::new();
         let mut colors = Vec::new();
         let mut food = Vec::new();
+        let mut predators = Vec::new();
 
         let color_palette = ["#ff00cc", "#ccff00", "#00ccff", "#ffcc00"];
 
-        // Spawn Agents
+        // Agents
         for _ in 0..agent_count {
             positions.push((Math::random() * width, Math::random() * height));
             angles.push(Math::random() * 6.28);
             energies.push(100.0);
             brains.push(Brain::new());
-            
             let color_idx = (Math::random() * 4.0) as usize;
             colors.push(color_palette[color_idx].to_string());
         }
 
-        // Spawn Food
+        // Food
         for _ in 0..food_count {
             food.push((Math::random() * width, Math::random() * height));
         }
 
+        // Predators
+        for _ in 0..predator_count {
+            predators.push((Math::random() * width, Math::random() * height));
+        }
+
         Simulation { 
-            positions, angles, energies, brains, colors, food, width, height,
-            mutation_rate: 0.1 // Default mutation rate
+            positions, angles, energies, brains, colors, food, predators, 
+            width, height, mutation_rate: 0.1 
         }
     }
 
-    // FEATURE: Allow JS to change mutation rate via slider
+    // --- RESIZE FUNCTION (Preserved) ---
+    pub fn resize(&mut self, width: f64, height: f64) {
+        self.width = width;
+        self.height = height;
+    }
+
     pub fn set_mutation_rate(&mut self, rate: f64) {
         self.mutation_rate = rate;
     }
 
-    // FEATURE: Allow JS to read average energy for stats
     pub fn get_avg_energy(&self) -> f64 {
         if self.energies.is_empty() { return 0.0; }
         let sum: f64 = self.energies.iter().sum();
         sum / self.energies.len() as f64
     }
 
-    // Logic Step (Renamed from update to step for clarity in JS)
     pub fn step(&mut self) {
         let eat_radius = 10.0; 
+        let pred_kill_radius = 15.0; 
         let total_agents = self.positions.len();
 
+        // A. PREDATORS
+        for i in 0..self.predators.len() {
+            let (px, py) = self.predators[i];
+            let mut closest_agent_dist = 999999.0;
+            let mut target_x = px; 
+            let mut target_y = py;
+
+            for j in 0..total_agents {
+                if self.energies[j] <= 0.0 { continue; } 
+                let (ax, ay) = self.positions[j];
+                let dist = (px - ax).hypot(py - ay);
+                if dist < closest_agent_dist {
+                    closest_agent_dist = dist;
+                    target_x = ax;
+                    target_y = ay;
+                }
+            }
+
+            let speed = 2.5; 
+            let dx = target_x - px;
+            let dy = target_y - py;
+            let dist = dx.hypot(dy);
+            
+            if dist > 0.0 {
+                self.predators[i].0 += (dx / dist) * speed;
+                self.predators[i].1 += (dy / dist) * speed;
+            }
+        }
+
+        // B. AGENTS
         for i in 0..total_agents {
             let (my_x, my_y) = self.positions[i];
 
-            // 1. SENSORS (With Index Tracking Fix)
-            let mut closest_dist_sq = 999999.0;
-            let mut closest_dx = 0.0;
-            let mut closest_dy = 0.0;
+            // 1. Food Sensors
+            let mut closest_food_dist_sq = 999999.0;
+            let mut closest_food_dx = 0.0;
+            let mut closest_food_dy = 0.0;
             let mut closest_food_index = 0; 
 
             for (idx, (fx, fy)) in self.food.iter().enumerate() {
                 let dx = fx - my_x;
                 let dy = fy - my_y;
                 let dist_sq = dx*dx + dy*dy;
-                if dist_sq < closest_dist_sq {
-                    closest_dist_sq = dist_sq;
-                    closest_dx = dx;
-                    closest_dy = dy;
-                    closest_food_index = idx; // Save the index
+                if dist_sq < closest_food_dist_sq {
+                    closest_food_dist_sq = dist_sq;
+                    closest_food_dx = dx;
+                    closest_food_dy = dy;
+                    closest_food_index = idx;
                 }
             }
 
-            let input_dx = closest_dx / self.width;
-            let input_dy = closest_dy / self.height;
-            let input_energy = self.energies[i] / 100.0;
+            // 2. Predator Sensors
+            let mut closest_pred_dist_sq = 999999.0;
+            let mut closest_pred_dx = 0.0;
+            let mut closest_pred_dy = 0.0;
 
-            // 2. BRAIN PROCESS
-            let outputs = self.brains[i].process(&[input_dx, input_dy, input_energy]);
+            for (px, py) in &self.predators {
+                let dx = px - my_x;
+                let dy = py - my_y;
+                let dist_sq = dx*dx + dy*dy;
+                if dist_sq < closest_pred_dist_sq {
+                    closest_pred_dist_sq = dist_sq;
+                    closest_pred_dx = dx;
+                    closest_pred_dy = dy;
+                }
+            }
+
+            let in_food_dx = closest_food_dx / self.width;
+            let in_food_dy = closest_food_dy / self.height;
+            let in_pred_dx = closest_pred_dx / self.width;
+            let in_pred_dy = closest_pred_dy / self.height;
+            let in_energy = self.energies[i] / 100.0;
+
+            // 3. Brain
+            let outputs = self.brains[i].process(&[in_food_dx, in_food_dy, in_energy, in_pred_dx, in_pred_dy]);
+            
             let turn_force = outputs[0] * 0.2; 
             let speed = (outputs[1] + 1.0) * 1.5; 
 
-            // 3. PHYSICS & MOVEMENT
+            // 4. Physics
             self.angles[i] += turn_force;
             let vx = self.angles[i].cos() * speed;
             let vy = self.angles[i].sin() * speed;
 
             let (mut x, mut y) = self.positions[i];
-            x += vx;
-            y += vy;
+            x += vx; y += vy;
 
-            // Screen Wrap
-            if x < 0.0 { x = self.width; }
-            if x > self.width { x = 0.0; }
-            if y < 0.0 { y = self.height; }
-            if y > self.height { y = 0.0; }
+            // Wall Bouncing
+            if x < 0.0 { x = 0.0; self.angles[i] += 3.14; }
+            if x > self.width { x = self.width; self.angles[i] += 3.14; }
+            if y < 0.0 { y = 0.0; self.angles[i] += 3.14; }
+            if y > self.height { y = self.height; self.angles[i] += 3.14; }
             self.positions[i] = (x, y);
 
-            // 4. METABOLISM & EATING
+            // 5. Metabolism
             self.energies[i] -= speed * 0.2; 
 
-            // EATING LOGIC
-            if closest_dist_sq < eat_radius * eat_radius {
+            // 6. Interactions
+            if closest_food_dist_sq < eat_radius * eat_radius {
                  self.energies[i] += 40.0; 
                  if self.energies[i] > 200.0 { self.energies[i] = 200.0; } 
-                 
-                 // Respawn the exact food item we saw using index
                  self.food[closest_food_index] = (Math::random() * self.width, Math::random() * self.height);
             }
 
-            // 5. EVOLUTION (Tournament Selection)
+            if closest_pred_dist_sq < pred_kill_radius * pred_kill_radius {
+                self.energies[i] = -10.0; // Killed
+            }
+
+            // 7. Evolution
             if self.energies[i] <= 0.0 {
-                // Agent died. Find a survivor to clone.
                 let mut best_parent_idx = 0;
                 let mut max_energy = -1.0;
 
-                // Pick 5 random agents and find the best one
                 for _ in 0..5 {
                     let r = (Math::random() * total_agents as f64) as usize;
                     if r != i && self.energies[r] > max_energy {
@@ -216,17 +273,13 @@ impl Simulation {
                 }
 
                 if max_energy > 60.0 {
-                    // SUCCESS: Clone Parent Brain + Mutate using DYNAMIC RATE
                     self.brains[i] = self.brains[best_parent_idx].mutate(self.mutation_rate);
-                    self.colors[i] = self.colors[best_parent_idx].clone(); // Inherit Tribe Color
-                    
+                    self.colors[i] = self.colors[best_parent_idx].clone(); 
                     let (px, py) = self.positions[best_parent_idx];
                     self.positions[i] = (px + (Math::random()-0.5)*10.0, py + (Math::random()-0.5)*10.0);
-                    
                     self.energies[i] = 60.0; 
-                    self.energies[best_parent_idx] -= 20.0; // Parent pays energy cost
+                    self.energies[best_parent_idx] -= 20.0; 
                 } else {
-                    // FAILURE: Random Respawn
                     self.brains[i] = Brain::new();
                     self.positions[i] = (Math::random() * self.width, Math::random() * self.height);
                     self.energies[i] = 100.0;
@@ -235,13 +288,12 @@ impl Simulation {
         }
     }
 
-    // Drawing Logic (Exposed to be called from Rust loop or JS loop)
     pub fn draw(&self, context: &web_sys::CanvasRenderingContext2d) {
         // Background
         context.set_fill_style(&JsValue::from_str("#111"));
         context.fill_rect(0.0, 0.0, self.width, self.height);
         
-        // Draw Food
+        // Food
         context.set_fill_style(&JsValue::from_str("#00ff00"));
         for (fx, fy) in &self.food {
             context.begin_path();
@@ -249,7 +301,17 @@ impl Simulation {
             context.fill();
         }
 
-        // Draw Agents
+        // Predators
+        context.set_fill_style(&JsValue::from_str("#ff0000"));
+        for (px, py) in &self.predators {
+            context.begin_path();
+            context.move_to(*px, *py - 10.0);
+            context.line_to(*px + 8.0, *py + 8.0);
+            context.line_to(*px - 8.0, *py + 8.0);
+            context.fill();
+        }
+
+        // Agents
         for i in 0..self.positions.len() {
             let (x, y) = self.positions[i];
             let angle = self.angles[i];
@@ -261,10 +323,9 @@ impl Simulation {
             context.translate(x, y).unwrap();
             context.rotate(angle).unwrap();
             
-            // Triangle Shape
             context.begin_path();
-            context.move_to(6.0, 0.0);   
-            context.line_to(-4.0, 4.0);  
+            context.move_to(6.0, 0.0);    
+            context.line_to(-4.0, 4.0);   
             context.line_to(-4.0, -4.0); 
             context.fill();
             
@@ -274,7 +335,8 @@ impl Simulation {
     }
 }
 
-// --- ENTRY POINT (Auto-starts the simulation) ---
+// --- ENTRY POINT ---
+// Fixed: Includes the game loop so the simulation runs automatically
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
     console_error_panic_hook::set_once();
@@ -304,7 +366,7 @@ pub fn start() -> Result<(), JsValue> {
 
     // GAME LOOP
     *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
-        // 1. Update Physics/Brain
+        // 1. Update Physics/Brain (Predators + Agents)
         sim_loop.borrow_mut().step();
 
         // 2. Draw using the method on the struct
