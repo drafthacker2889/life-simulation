@@ -1,14 +1,9 @@
 // World Settings
-pub const WIDTH: f64 = 0.0; // Dynamic, set in new()
-pub const HEIGHT: f64 = 0.0; // Dynamic
-
-// Simulation Settings
 pub const AGENT_COUNT: usize = 800;
 pub const FOOD_COUNT: usize = 100;
 pub const PREDATOR_COUNT: usize = 5;
 
 // Physics
-pub const FRICTION: f64 = 0.9; // Not used yet, but good to have
 pub const AGENT_SPEED_MODIFIER: f64 = 1.5;
 pub const TURN_SPEED: f64 = 0.2;
 
@@ -24,8 +19,6 @@ pub const BATTLE_COST: f64 = 50.0;
 pub const EAT_RADIUS: f64 = 10.0;
 pub const PREDATOR_KILL_RADIUS: f64 = 15.0;
 pub const WHISKER_LEN: f64 = 50.0;
-pub const VISION_RADIUS: f64 = 200.0; // For "Hearing" and social checks
 
 // Evolution
-pub const MUTATION_CHANCE: f64 = 0.2;
 pub const BASE_MUTATION_RATE: f64 = 0.1;
