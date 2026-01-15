@@ -6,50 +6,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body, html { 
-            margin: 0; 
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background: #000; 
-            overflow: hidden; 
-            font-family: 'Courier New', Courier, monospace; 
-            color: #0f0; 
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background: #000; overflow: hidden; 
+            font-family: 'Courier New', Courier, monospace; color: #0f0; 
         }
-
-        canvas { 
-            display: block; 
-            width: 100%;
-            height: 100%;
-            cursor: grab; /* Shows dragging is possible */
-        }
+        canvas { display: block; width: 100%; height: 100%; cursor: grab; }
         canvas:active { cursor: grabbing; }
         
         #ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 30, 0, 0.85);
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(0, 30, 0, 0.9);
             border: 1px solid #00ffcc;
             box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
-            padding: 20px;
-            border-radius: 12px;
-            width: 280px;
-            z-index: 100;
-            backdrop-filter: blur(4px);
-            max-height: 90vh; 
-            overflow-y: auto;
+            padding: 20px; border-radius: 12px; width: 280px;
+            z-index: 100; backdrop-filter: blur(4px);
+            max-height: 90vh; overflow-y: auto;
         }
         h3 { margin: 0 0 15px 0; color: #00ffcc; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; }
         .stat-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
         hr { border: 0; border-top: 1px solid #004433; margin: 15px 0; }
         label { display: block; margin-bottom: 5px; font-size: 12px; color: #aaa; }
-        input[type=range] { 
-            width: 100%; 
-            margin-bottom: 10px; 
-            cursor: pointer;
-            accent-color: #00ffcc;
-        }
-        /* Custom Scrollbar */
+        input[type=range] { width: 100%; margin-bottom: 10px; cursor: pointer; accent-color: #00ffcc; }
+        
+        /* Tribe Bars */
+        .tribe-bar { height: 6px; border-radius: 3px; margin-top: 2px; transition: width 0.2s; }
+        
+        /* Scrollbar styling for the UI panel */
         #ui::-webkit-scrollbar { width: 6px; }
         #ui::-webkit-scrollbar-thumb { background: #004433; border-radius: 3px; }
     </style>
@@ -57,18 +39,44 @@
 <body>
     <div id="ui">
         <h3>🧬 Evolution Control</h3>
-        <div style="font-size:10px; color:#aaa; margin-bottom:10px;">
-            🖱️ Scroll to Zoom | Drag to Pan
-        </div>
+        <div style="font-size:10px; color:#aaa; margin-bottom:10px;">🖱️ Scroll to Zoom | Drag to Pan</div>
         
         <div class="stat-row">
             <span>Avg Energy:</span>
             <span id="val-energy" style="color: #fff; font-weight: bold;">100</span>
         </div>
-        
+
+        <hr>
+        <label>Tribe Population</label>
+        <div style="margin-bottom: 15px;">
+            <div class="stat-row">
+                <span style="color:#ff00cc">Pink</span>
+                <span id="count-pink">0</span>
+            </div>
+            <div class="tribe-bar" id="bar-pink" style="background:#ff00cc; width:0%"></div>
+
+            <div class="stat-row" style="margin-top:5px">
+                <span style="color:#ccff00">Green</span>
+                <span id="count-green">0</span>
+            </div>
+            <div class="tribe-bar" id="bar-green" style="background:#ccff00; width:0%"></div>
+
+            <div class="stat-row" style="margin-top:5px">
+                <span style="color:#00ccff">Blue</span>
+                <span id="count-blue">0</span>
+            </div>
+            <div class="tribe-bar" id="bar-blue" style="background:#00ccff; width:0%"></div>
+
+            <div class="stat-row" style="margin-top:5px">
+                <span style="color:#ffcc00">Orange</span>
+                <span id="count-orange">0</span>
+            </div>
+            <div class="tribe-bar" id="bar-orange" style="background:#ffcc00; width:0%"></div>
+        </div>
+
         <hr>
         
-        <label>Simulation Speed (Multiplier)</label>
+        <label>Simulation Speed</label>
         <input type="range" id="speed" min="1" max="20" value="1">
         
         <label>Mutation Rate: <span id="val-mut" style="color:#fff">0.1</span></label>
@@ -76,15 +84,14 @@
 
         <hr>
 
-        <label>Food Count: <span id="val-food" style="color:#fff">80</span></label>
-        <input type="range" id="food" min="10" max="300" step="10" value="80">
+        <label>Food Count: <span id="val-food" style="color:#fff">100</span></label>
+        <input type="range" id="food" min="10" max="300" step="10" value="100">
 
-        <label>Predator Speed: <span id="val-pred" style="color:#fff">2.5</span></label>
-        <input type="range" id="pred" min="0" max="5.0" step="0.1" value="2.5">
+        <label>Predator Speed: <span id="val-pred" style="color:#fff">2.2</span></label>
+        <input type="range" id="pred" min="0" max="5.0" step="0.1" value="2.2">
 
-        <label>Reproduction Difficulty: <span id="val-repro" style="color:#fff">60</span></label>
+        <label>Repro Threshold: <span id="val-repro" style="color:#fff">60</span></label>
         <input type="range" id="repro" min="10" max="150" step="5" value="60">
-        <div style="font-size:10px; color:#aaa;">Lower = More babies (Clustering)</div>
     </div>
 
     <canvas id="canvas"></canvas>
@@ -94,103 +101,78 @@
 
         async function run() {
             await init();
-
             const canvas = document.getElementById('canvas');
             const ctx = canvas.getContext('2d');
 
             function resize() {
                 const dpr = window.devicePixelRatio || 1;
-                
-                // Full Screen Mode: Use window dimensions
                 const physicalWidth = window.innerWidth * dpr;
                 const physicalHeight = window.innerHeight * dpr;
-
-                canvas.width = physicalWidth;
-                canvas.height = physicalHeight;
-
-                canvas.style.width = window.innerWidth + "px";
-                canvas.style.height = window.innerHeight + "px";
-
-                if (window.sim) {
-                    window.sim.resize(physicalWidth, physicalHeight);
-                }
+                canvas.width = physicalWidth; canvas.height = physicalHeight;
+                canvas.style.width = window.innerWidth + "px"; canvas.style.height = window.innerHeight + "px";
+                if (window.sim) window.sim.resize(physicalWidth, physicalHeight);
                 return { w: physicalWidth, h: physicalHeight };
             }
-
-            // Initial sizing
             const size = resize();
             window.addEventListener('resize', resize);
 
             const sim = Simulation.new(size.w, size.h);
             window.sim = sim; 
 
-            // Camera Inputs
+            // Camera
             canvas.addEventListener('wheel', (e) => {
                 e.preventDefault();
-                const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1; 
-                sim.zoom_at(zoomFactor);
+                sim.zoom_at(e.deltaY > 0 ? 0.9 : 1.1);
             });
-
-            let isDragging = false;
-            let startX, startY;
+            let isDragging = false, startX, startY;
             canvas.addEventListener('mousedown', (e) => { isDragging = true; startX = e.clientX; startY = e.clientY; });
             canvas.addEventListener('mousemove', (e) => {
                 if (!isDragging) return;
-                const dx = startX - e.clientX;
-                const dy = startY - e.clientY;
-                sim.pan(dx, dy);
-                startX = e.clientX;
-                startY = e.clientY;
+                sim.pan(startX - e.clientX, startY - e.clientY);
+                startX = e.clientX; startY = e.clientY;
             });
             window.addEventListener('mouseup', () => isDragging = false);
 
-            // UI Inputs
+            // UI Elements
             const elEnergy = document.getElementById('val-energy');
             const sliderSpeed = document.getElementById('speed');
-            
-            // Mutation
-            const elMut = document.getElementById('val-mut');
             const sliderMut = document.getElementById('mutation');
-            sliderMut.addEventListener('input', (e) => {
-                const val = parseFloat(e.target.value);
-                elMut.innerText = val.toFixed(2);
-                sim.set_mutation_rate(val); 
-            });
-
-            // Food
-            const elFood = document.getElementById('val-food');
             const sliderFood = document.getElementById('food');
-            sliderFood.addEventListener('input', (e) => {
-                const val = parseInt(e.target.value);
-                elFood.innerText = val;
-                sim.set_food_count(val);
-            });
-
-            // Predator Speed
-            const elPred = document.getElementById('val-pred');
             const sliderPred = document.getElementById('pred');
-            sliderPred.addEventListener('input', (e) => {
-                const val = parseFloat(e.target.value);
-                elPred.innerText = val.toFixed(1);
-                sim.set_predator_speed(val);
-            });
-
-            // Reproduction
-            const elRepro = document.getElementById('val-repro');
             const sliderRepro = document.getElementById('repro');
-            sliderRepro.addEventListener('input', (e) => {
-                const val = parseFloat(e.target.value);
-                elRepro.innerText = val.toFixed(0);
-                sim.set_reproduction_threshold(val);
-            });
+            
+            // Stats Elements
+            const elP = document.getElementById('count-pink');
+            const barP = document.getElementById('bar-pink');
+            const elG = document.getElementById('count-green');
+            const barG = document.getElementById('bar-green');
+            const elB = document.getElementById('count-blue');
+            const barB = document.getElementById('bar-blue');
+            const elO = document.getElementById('count-orange');
+            const barO = document.getElementById('bar-orange');
+
+            sliderMut.addEventListener('input', (e) => { document.getElementById('val-mut').innerText = e.target.value; sim.set_mutation_rate(parseFloat(e.target.value)); });
+            sliderFood.addEventListener('input', (e) => { document.getElementById('val-food').innerText = e.target.value; sim.set_food_count(parseInt(e.target.value)); });
+            sliderPred.addEventListener('input', (e) => { document.getElementById('val-pred').innerText = e.target.value; sim.set_predator_speed(parseFloat(e.target.value)); });
+            sliderRepro.addEventListener('input', (e) => { document.getElementById('val-repro').innerText = e.target.value; sim.set_reproduction_threshold(parseFloat(e.target.value)); });
 
             function loop() {
                 const steps = parseInt(sliderSpeed.value);
-                for(let i=0; i<steps; i++) {
-                    sim.step();
-                }
+                for(let i=0; i<steps; i++) sim.step();
                 sim.draw(ctx);
                 elEnergy.innerText = sim.get_avg_energy().toFixed(1);
+                
+                // Update Tribe Stats (Throttled: roughly every ~20-50ms)
+                if (performance.now() % 50 < 20) {
+                    const stats = sim.get_tribe_stats(); // Returns [Pink, Green, Blue, Orange]
+                    const total = 800; // Agent count
+                    
+                    elP.innerText = stats[0]; barP.style.width = (stats[0]/total*100) + "%";
+                    elG.innerText = stats[1]; barG.style.width = (stats[1]/total*100) + "%";
+                    elB.innerText = stats[2]; barB.style.width = (stats[2]/total*100) + "%";
+                    elO.innerText = stats[3]; barO.style.width = (stats[3]/total*100) + "%";
+                }
+
                 requestAnimationFrame(loop);
             }
             loop();
