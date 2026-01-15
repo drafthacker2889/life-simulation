@@ -7,9 +7,9 @@ use js_sys::Math;
 // --- THE BRAIN (Neural Network) ---
 #[derive(Clone)]
 struct Brain {
-    weights_input: Vec<f64>,  
-    weights_output: Vec<f64>, 
-    biases: Vec<f64>,         
+    weights_input: Vec<f64>,
+    weights_output: Vec<f64>,
+    biases: Vec<f64>,
 }
 
 impl Brain {
@@ -19,22 +19,21 @@ impl Brain {
         let mut biases = Vec::new();
 
         // Initialize with random values between -1.0 and 1.0
-        for _ in 0..18 { weights_input.push((Math::random() * 2.0) - 1.0); } 
-        for _ in 0..12 { weights_output.push((Math::random() * 2.0) - 1.0); } 
-        for _ in 0..8  { biases.push((Math::random() * 2.0) - 1.0); }        
+        for _ in 0..18 { weights_input.push((Math::random() * 2.0) - 1.0); }
+        for _ in 0..12 { weights_output.push((Math::random() * 2.0) - 1.0); }
+        for _ in 0..8  { biases.push((Math::random() * 2.0) - 1.0); }
 
         Brain { weights_input, weights_output, biases }
     }
 
-    // EVOLUTION FEATURE: Create a mutated copy of the brain
-    fn mutate(&self) -> Brain {
-        let mutation_rate = 0.1; // Magnitude of change
-        let mutation_chance = 0.2; // Probability of a weight changing
+    // FEATURE: Evolution with Dynamic Mutation Rate (from Block 2)
+    fn mutate(&self, rate: f64) -> Brain {
+        let mutation_chance = 0.2;
 
         let mutate_vec = |vals: &Vec<f64>| -> Vec<f64> {
             vals.iter().map(|&v| {
                 if Math::random() < mutation_chance {
-                    v + (Math::random() * 2.0 - 1.0) * mutation_rate
+                    v + (Math::random() * 2.0 - 1.0) * rate // Dynamic rate applied here
                 } else {
                     v
                 }
@@ -71,20 +70,30 @@ impl Brain {
 }
 
 // --- THE SIMULATION WORLD ---
-struct Simulation {
-    positions: Vec<(f64, f64)>, 
+// #[wasm_bindgen] allows JS to create/interact with this struct directly
+#[wasm_bindgen]
+pub struct Simulation {
+    positions: Vec<(f64, f64)>,
     angles: Vec<f64>,
     energies: Vec<f64>,
     brains: Vec<Brain>,
-    colors: Vec<&'static str>, 
+    colors: Vec<String>, // Using String for JS compatibility
     
-    food: Vec<(f64, f64)>, 
+    food: Vec<(f64, f64)>,
     width: f64,
     height: f64,
+
+    // FEATURE: Store the mutation rate from the slider
+    mutation_rate: f64,
 }
 
+#[wasm_bindgen]
 impl Simulation {
-    fn new(agent_count: usize, food_count: usize, width: f64, height: f64) -> Simulation {
+    // Constructor
+    pub fn new(width: f64, height: f64) -> Simulation {
+        let agent_count = 800; 
+        let food_count = 80;
+
         let mut positions = Vec::new();
         let mut angles = Vec::new();
         let mut energies = Vec::new();
@@ -102,7 +111,7 @@ impl Simulation {
             brains.push(Brain::new());
             
             let color_idx = (Math::random() * 4.0) as usize;
-            colors.push(color_palette[color_idx]);
+            colors.push(color_palette[color_idx].to_string());
         }
 
         // Spawn Food
@@ -110,21 +119,37 @@ impl Simulation {
             food.push((Math::random() * width, Math::random() * height));
         }
 
-        Simulation { positions, angles, energies, brains, colors, food, width, height }
+        Simulation { 
+            positions, angles, energies, brains, colors, food, width, height,
+            mutation_rate: 0.1 // Default mutation rate
+        }
     }
 
-    fn update(&mut self) {
+    // FEATURE: Allow JS to change mutation rate via slider
+    pub fn set_mutation_rate(&mut self, rate: f64) {
+        self.mutation_rate = rate;
+    }
+
+    // FEATURE: Allow JS to read average energy for stats
+    pub fn get_avg_energy(&self) -> f64 {
+        if self.energies.is_empty() { return 0.0; }
+        let sum: f64 = self.energies.iter().sum();
+        sum / self.energies.len() as f64
+    }
+
+    // Logic Step (Renamed from update to step for clarity in JS)
+    pub fn step(&mut self) {
         let eat_radius = 10.0; 
         let total_agents = self.positions.len();
 
         for i in 0..total_agents {
             let (my_x, my_y) = self.positions[i];
 
-            // 1. SENSORS (With Fix: Track the Index)
+            // 1. SENSORS (With Index Tracking Fix)
             let mut closest_dist_sq = 999999.0;
             let mut closest_dx = 0.0;
             let mut closest_dy = 0.0;
-            let mut closest_food_index = 0; // Tracks WHICH food is closest
+            let mut closest_food_index = 0; 
 
             for (idx, (fx, fy)) in self.food.iter().enumerate() {
                 let dx = fx - my_x;
@@ -166,12 +191,12 @@ impl Simulation {
             // 4. METABOLISM & EATING
             self.energies[i] -= speed * 0.2; 
 
-            // EATING LOGIC (Fixed: Uses saved index)
+            // EATING LOGIC
             if closest_dist_sq < eat_radius * eat_radius {
                  self.energies[i] += 40.0; 
                  if self.energies[i] > 200.0 { self.energies[i] = 200.0; } 
                  
-                 // Respawn the exact food item we saw
+                 // Respawn the exact food item we saw using index
                  self.food[closest_food_index] = (Math::random() * self.width, Math::random() * self.height);
             }
 
@@ -191,9 +216,9 @@ impl Simulation {
                 }
 
                 if max_energy > 60.0 {
-                    // SUCCESS: Clone Parent Brain + Mutate
-                    self.brains[i] = self.brains[best_parent_idx].mutate();
-                    self.colors[i] = self.colors[best_parent_idx]; // Inherit Tribe Color
+                    // SUCCESS: Clone Parent Brain + Mutate using DYNAMIC RATE
+                    self.brains[i] = self.brains[best_parent_idx].mutate(self.mutation_rate);
+                    self.colors[i] = self.colors[best_parent_idx].clone(); // Inherit Tribe Color
                     
                     let (px, py) = self.positions[best_parent_idx];
                     self.positions[i] = (px + (Math::random()-0.5)*10.0, py + (Math::random()-0.5)*10.0);
@@ -209,9 +234,47 @@ impl Simulation {
             }
         }
     }
+
+    // Drawing Logic (Exposed to be called from Rust loop or JS loop)
+    pub fn draw(&self, context: &web_sys::CanvasRenderingContext2d) {
+        // Background
+        context.set_fill_style(&JsValue::from_str("#111"));
+        context.fill_rect(0.0, 0.0, self.width, self.height);
+        
+        // Draw Food
+        context.set_fill_style(&JsValue::from_str("#00ff00"));
+        for (fx, fy) in &self.food {
+            context.begin_path();
+            context.arc(*fx, *fy, 3.0, 0.0, 6.28).unwrap();
+            context.fill();
+        }
+
+        // Draw Agents
+        for i in 0..self.positions.len() {
+            let (x, y) = self.positions[i];
+            let angle = self.angles[i];
+            
+            context.set_fill_style(&JsValue::from_str(&self.colors[i]));
+            context.set_global_alpha(self.energies[i] / 100.0);
+            
+            context.save();
+            context.translate(x, y).unwrap();
+            context.rotate(angle).unwrap();
+            
+            // Triangle Shape
+            context.begin_path();
+            context.move_to(6.0, 0.0);   
+            context.line_to(-4.0, 4.0);  
+            context.line_to(-4.0, -4.0); 
+            context.fill();
+            
+            context.restore();
+        }
+        context.set_global_alpha(1.0);
+    }
 }
 
-// --- ENTRY POINT ---
+// --- ENTRY POINT (Auto-starts the simulation) ---
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
     console_error_panic_hook::set_once();
@@ -229,55 +292,23 @@ pub fn start() -> Result<(), JsValue> {
     let context = canvas.get_context("2d")?.unwrap()
         .dyn_into::<web_sys::CanvasRenderingContext2d>()?;
 
-    // Create World: 800 Agents, 80 Food
+    // Create World using the new Struct definition
     let simulation = Rc::new(RefCell::new(
-        Simulation::new(800, 80, width, height)
+        Simulation::new(width, height)
     ));
 
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
     let sim_loop = simulation.clone();
+    let ctx_loop = context.clone(); // Clone context for the closure
 
     // GAME LOOP
     *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
-        sim_loop.borrow_mut().update();
+        // 1. Update Physics/Brain
+        sim_loop.borrow_mut().step();
 
-        let sim = sim_loop.borrow();
-        
-        // Background
-        context.set_fill_style(&JsValue::from_str("#111"));
-        context.fill_rect(0.0, 0.0, sim.width, sim.height);
-        
-        // Draw Food
-        context.set_fill_style(&JsValue::from_str("#00ff00"));
-        for (fx, fy) in &sim.food {
-            context.begin_path();
-            context.arc(*fx, *fy, 3.0, 0.0, 6.28).unwrap();
-            context.fill();
-        }
-
-        // Draw Agents
-        for i in 0..sim.positions.len() {
-            let (x, y) = sim.positions[i];
-            let angle = sim.angles[i];
-            
-            context.set_fill_style(&JsValue::from_str(sim.colors[i]));
-            context.set_global_alpha(sim.energies[i] / 100.0);
-            
-            context.save();
-            context.translate(x, y).unwrap();
-            context.rotate(angle).unwrap();
-            
-            // Triangle Shape
-            context.begin_path();
-            context.move_to(6.0, 0.0);   
-            context.line_to(-4.0, 4.0);  
-            context.line_to(-4.0, -4.0); 
-            context.fill();
-            
-            context.restore();
-        }
-        context.set_global_alpha(1.0);
+        // 2. Draw using the method on the struct
+        sim_loop.borrow().draw(&ctx_loop);
 
         request_animation_frame(f.borrow().as_ref().unwrap());
     }) as Box<dyn FnMut()>));
