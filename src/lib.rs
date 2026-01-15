@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use js_sys::Math;
 
-// --- THE BRAIN (Neural Network) ---
+// --- THE BRAIN (No changes) ---
 #[derive(Clone)]
 struct Brain {
     weights_input: Vec<f64>,
@@ -17,19 +17,14 @@ impl Brain {
         let mut weights_input = Vec::new();
         let mut weights_output = Vec::new();
         let mut biases = Vec::new();
-
-        // 5 Inputs (FoodX, FoodY, Energy, PredX, PredY) * 6 Hidden = 30 weights
         for _ in 0..30 { weights_input.push((Math::random() * 2.0) - 1.0); } 
         for _ in 0..12 { weights_output.push((Math::random() * 2.0) - 1.0); } 
         for _ in 0..8  { biases.push((Math::random() * 2.0) - 1.0); }        
-
         Brain { weights_input, weights_output, biases }
     }
 
-    // Evolution with Dynamic Mutation Rate
     fn mutate(&self, rate: f64) -> Brain {
         let mutation_chance = 0.2; 
-
         let mutate_vec = |vals: &Vec<f64>| -> Vec<f64> {
             vals.iter().map(|&v| {
                 if Math::random() < mutation_chance {
@@ -39,7 +34,6 @@ impl Brain {
                 }
             }).collect()
         };
-
         Brain {
             weights_input: mutate_vec(&self.weights_input),
             weights_output: mutate_vec(&self.weights_output),
@@ -48,17 +42,13 @@ impl Brain {
     }
 
     fn process(&self, inputs: &[f64]) -> Vec<f64> {
-        // Hidden Layer
         let mut hidden = vec![0.0; 6];
         for i in 0..6 {
             let mut sum = 0.0;
-            // Loop 5 times for 5 inputs
             for j in 0..5 { sum += inputs[j] * self.weights_input[i * 5 + j]; }
             sum += self.biases[i];
             hidden[i] = sum.tanh();
         }
-
-        // Output Layer
         let mut outputs = vec![0.0; 2];
         for i in 0..2 {
             let mut sum = 0.0;
@@ -84,7 +74,16 @@ pub struct Simulation {
 
     width: f64,
     height: f64,
-    mutation_rate: f64, 
+    
+    // CONFIGURABLE PARAMETERS
+    mutation_rate: f64,
+    predator_speed: f64,       // NEW
+    reproduction_threshold: f64, // NEW
+
+    // CAMERA
+    view_x: f64,
+    view_y: f64,
+    zoom: f64,
 }
 
 #[wasm_bindgen]
@@ -104,7 +103,6 @@ impl Simulation {
 
         let color_palette = ["#ff00cc", "#ccff00", "#00ccff", "#ffcc00"];
 
-        // Agents
         for _ in 0..agent_count {
             positions.push((Math::random() * width, Math::random() * height));
             angles.push(Math::random() * 6.28);
@@ -114,30 +112,48 @@ impl Simulation {
             colors.push(color_palette[color_idx].to_string());
         }
 
-        // Food
         for _ in 0..food_count {
             food.push((Math::random() * width, Math::random() * height));
         }
 
-        // Predators
         for _ in 0..predator_count {
             predators.push((Math::random() * width, Math::random() * height));
         }
 
         Simulation { 
             positions, angles, energies, brains, colors, food, predators, 
-            width, height, mutation_rate: 0.1 
+            width, height, 
+            mutation_rate: 0.1,
+            predator_speed: 2.5,       // Default Speed
+            reproduction_threshold: 60.0, // Default Difficulty
+            view_x: 0.0, view_y: 0.0, zoom: 1.0,
         }
     }
 
-    // --- RESIZE FUNCTION ---
+    // --- CONTROLS ---
+    pub fn set_mutation_rate(&mut self, rate: f64) { self.mutation_rate = rate; }
+    
+    // NEW: Slider 1 - Predator Speed
+    pub fn set_predator_speed(&mut self, speed: f64) { self.predator_speed = speed; }
+    
+    // NEW: Slider 2 - Reproduction Difficulty
+    pub fn set_reproduction_threshold(&mut self, val: f64) { self.reproduction_threshold = val; }
+
+    // NEW: Slider 3 - Food Count (Adds or Removes food dynamically)
+    pub fn set_food_count(&mut self, count: usize) {
+        let current = self.food.len();
+        if count > current {
+            for _ in 0..(count - current) {
+                self.food.push((Math::random() * self.width, Math::random() * self.height));
+            }
+        } else if count < current {
+            self.food.truncate(count);
+        }
+    }
+
     pub fn resize(&mut self, width: f64, height: f64) {
         self.width = width;
         self.height = height;
-    }
-
-    pub fn set_mutation_rate(&mut self, rate: f64) {
-        self.mutation_rate = rate;
     }
 
     pub fn get_avg_energy(&self) -> f64 {
@@ -146,12 +162,23 @@ impl Simulation {
         sum / self.energies.len() as f64
     }
 
+    pub fn pan(&mut self, dx: f64, dy: f64) {
+        self.view_x += dx / self.zoom;
+        self.view_y += dy / self.zoom;
+    }
+
+    pub fn zoom_at(&mut self, factor: f64) {
+        self.zoom *= factor;
+        if self.zoom < 0.1 { self.zoom = 0.1; }
+        if self.zoom > 5.0 { self.zoom = 5.0; }
+    }
+
     pub fn step(&mut self) {
         let eat_radius = 10.0; 
         let pred_kill_radius = 15.0; 
         let total_agents = self.positions.len();
 
-        // A. PREDATORS
+        // Predators
         for i in 0..self.predators.len() {
             let (px, py) = self.predators[i];
             let mut closest_agent_dist = 999999.0;
@@ -169,7 +196,7 @@ impl Simulation {
                 }
             }
 
-            let speed = 2.5; 
+            let speed = self.predator_speed; // USE VARIABLE
             let dx = target_x - px;
             let dy = target_y - py;
             let dist = dx.hypot(dy);
@@ -180,11 +207,10 @@ impl Simulation {
             }
         }
 
-        // B. AGENTS
+        // Agents
         for i in 0..total_agents {
             let (my_x, my_y) = self.positions[i];
 
-            // 1. Food Sensors
             let mut closest_food_dist_sq = 999999.0;
             let mut closest_food_dx = 0.0;
             let mut closest_food_dy = 0.0;
@@ -202,7 +228,6 @@ impl Simulation {
                 }
             }
 
-            // 2. Predator Sensors
             let mut closest_pred_dist_sq = 999999.0;
             let mut closest_pred_dx = 0.0;
             let mut closest_pred_dy = 0.0;
@@ -224,13 +249,10 @@ impl Simulation {
             let in_pred_dy = closest_pred_dy / self.height;
             let in_energy = self.energies[i] / 100.0;
 
-            // 3. Brain
             let outputs = self.brains[i].process(&[in_food_dx, in_food_dy, in_energy, in_pred_dx, in_pred_dy]);
-            
             let turn_force = outputs[0] * 0.2; 
             let speed = (outputs[1] + 1.0) * 1.5; 
 
-            // 4. Physics
             self.angles[i] += turn_force;
             let vx = self.angles[i].cos() * speed;
             let vy = self.angles[i].sin() * speed;
@@ -238,17 +260,14 @@ impl Simulation {
             let (mut x, mut y) = self.positions[i];
             x += vx; y += vy;
 
-            // Wall Bouncing
             if x < 0.0 { x = 0.0; self.angles[i] += 3.14; }
             if x > self.width { x = self.width; self.angles[i] += 3.14; }
             if y < 0.0 { y = 0.0; self.angles[i] += 3.14; }
             if y > self.height { y = self.height; self.angles[i] += 3.14; }
             self.positions[i] = (x, y);
 
-            // 5. Metabolism
             self.energies[i] -= speed * 0.2; 
 
-            // 6. Interactions
             if closest_food_dist_sq < eat_radius * eat_radius {
                  self.energies[i] += 40.0; 
                  if self.energies[i] > 200.0 { self.energies[i] = 200.0; } 
@@ -256,10 +275,9 @@ impl Simulation {
             }
 
             if closest_pred_dist_sq < pred_kill_radius * pred_kill_radius {
-                self.energies[i] = -10.0; // Killed
+                self.energies[i] = -10.0; 
             }
 
-            // 7. Evolution
             if self.energies[i] <= 0.0 {
                 let mut best_parent_idx = 0;
                 let mut max_energy = -1.0;
@@ -272,9 +290,11 @@ impl Simulation {
                     }
                 }
 
-                if max_energy > 60.0 {
-                    self.brains[i] = self.brains[best_parent_idx].mutate(self.mutation_rate);
-                    self.colors[i] = self.colors[best_parent_idx].clone(); 
+                if max_energy > self.reproduction_threshold { // USE VARIABLE
+                    let new_brain = self.brains[best_parent_idx].mutate(self.mutation_rate);
+                    self.brains[i] = new_brain;
+                    let new_color = self.colors[best_parent_idx].clone();
+                    self.colors[i] = new_color;
                     let (px, py) = self.positions[best_parent_idx];
                     self.positions[i] = (px + (Math::random()-0.5)*10.0, py + (Math::random()-0.5)*10.0);
                     self.energies[i] = 60.0; 
@@ -289,11 +309,17 @@ impl Simulation {
     }
 
     pub fn draw(&self, context: &web_sys::CanvasRenderingContext2d) {
-        // Background
         context.set_fill_style(&JsValue::from_str("#111"));
         context.fill_rect(0.0, 0.0, self.width, self.height);
-        
-        // Food
+
+        context.save();
+        context.scale(self.zoom, self.zoom).unwrap();
+        context.translate(-self.view_x, -self.view_y).unwrap();
+
+        context.set_stroke_style(&JsValue::from_str("#222"));
+        context.set_line_width(5.0);
+        context.stroke_rect(0.0, 0.0, self.width, self.height);
+
         context.set_fill_style(&JsValue::from_str("#00ff00"));
         for (fx, fy) in &self.food {
             context.begin_path();
@@ -301,7 +327,6 @@ impl Simulation {
             context.fill();
         }
 
-        // Predators
         context.set_fill_style(&JsValue::from_str("#ff0000"));
         for (px, py) in &self.predators {
             context.begin_path();
@@ -311,7 +336,6 @@ impl Simulation {
             context.fill();
         }
 
-        // Agents
         for i in 0..self.positions.len() {
             let (x, y) = self.positions[i];
             let angle = self.angles[i];
@@ -322,22 +346,18 @@ impl Simulation {
             context.save();
             context.translate(x, y).unwrap();
             context.rotate(angle).unwrap();
-            
             context.begin_path();
             context.move_to(6.0, 0.0);    
             context.line_to(-4.0, 4.0);   
             context.line_to(-4.0, -4.0); 
             context.fill();
-            
             context.restore();
         }
         context.set_global_alpha(1.0);
+        context.restore();
     }
 }
 
-// --- ENTRY POINT ---
-// Important: I have removed the simulation loop from here.
-// It just initializes the error hook. JS controls the loop now.
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
     console_error_panic_hook::set_once();

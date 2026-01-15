@@ -15,11 +15,15 @@
             font-family: 'Courier New', Courier, monospace; 
             color: #0f0; 
         }
+
         canvas { 
             display: block; 
             width: 100%;
             height: 100%;
+            cursor: grab; /* Shows dragging is possible */
         }
+        canvas:active { cursor: grabbing; }
+        
         #ui {
             position: absolute;
             top: 20px;
@@ -32,6 +36,8 @@
             width: 280px;
             z-index: 100;
             backdrop-filter: blur(4px);
+            max-height: 90vh; 
+            overflow-y: auto;
         }
         h3 { margin: 0 0 15px 0; color: #00ffcc; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; }
         .stat-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
@@ -39,23 +45,25 @@
         label { display: block; margin-bottom: 5px; font-size: 12px; color: #aaa; }
         input[type=range] { 
             width: 100%; 
-            margin-bottom: 15px; 
+            margin-bottom: 10px; 
             cursor: pointer;
             accent-color: #00ffcc;
         }
+        /* Custom Scrollbar */
+        #ui::-webkit-scrollbar { width: 6px; }
+        #ui::-webkit-scrollbar-thumb { background: #004433; border-radius: 3px; }
     </style>
 </head>
 <body>
     <div id="ui">
         <h3>🧬 Evolution Control</h3>
+        <div style="font-size:10px; color:#aaa; margin-bottom:10px;">
+            🖱️ Scroll to Zoom | Drag to Pan
+        </div>
         
         <div class="stat-row">
             <span>Avg Energy:</span>
             <span id="val-energy" style="color: #fff; font-weight: bold;">100</span>
-        </div>
-        <div class="stat-row">
-            <span>Population:</span>
-            <span id="val-pop">800</span>
         </div>
         
         <hr>
@@ -65,6 +73,18 @@
         
         <label>Mutation Rate: <span id="val-mut" style="color:#fff">0.1</span></label>
         <input type="range" id="mutation" min="0.01" max="1.0" step="0.01" value="0.1">
+
+        <hr>
+
+        <label>Food Count: <span id="val-food" style="color:#fff">80</span></label>
+        <input type="range" id="food" min="10" max="300" step="10" value="80">
+
+        <label>Predator Speed: <span id="val-pred" style="color:#fff">2.5</span></label>
+        <input type="range" id="pred" min="0" max="5.0" step="0.1" value="2.5">
+
+        <label>Reproduction Difficulty: <span id="val-repro" style="color:#fff">60</span></label>
+        <input type="range" id="repro" min="10" max="150" step="5" value="60">
+        <div style="font-size:10px; color:#aaa;">Lower = More babies (Clustering)</div>
     </div>
 
     <canvas id="canvas"></canvas>
@@ -80,6 +100,8 @@
 
             function resize() {
                 const dpr = window.devicePixelRatio || 1;
+                
+                // Full Screen Mode: Use window dimensions
                 const physicalWidth = window.innerWidth * dpr;
                 const physicalHeight = window.innerHeight * dpr;
 
@@ -92,25 +114,74 @@
                 if (window.sim) {
                     window.sim.resize(physicalWidth, physicalHeight);
                 }
-                
                 return { w: physicalWidth, h: physicalHeight };
             }
 
+            // Initial sizing
             const size = resize();
             window.addEventListener('resize', resize);
 
             const sim = Simulation.new(size.w, size.h);
             window.sim = sim; 
 
-            const elEnergy = document.getElementById('val-energy');
-            const elMut = document.getElementById('val-mut');
-            const sliderSpeed = document.getElementById('speed');
-            const sliderMut = document.getElementById('mutation');
+            // Camera Inputs
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1; 
+                sim.zoom_at(zoomFactor);
+            });
 
+            let isDragging = false;
+            let startX, startY;
+            canvas.addEventListener('mousedown', (e) => { isDragging = true; startX = e.clientX; startY = e.clientY; });
+            canvas.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const dx = startX - e.clientX;
+                const dy = startY - e.clientY;
+                sim.pan(dx, dy);
+                startX = e.clientX;
+                startY = e.clientY;
+            });
+            window.addEventListener('mouseup', () => isDragging = false);
+
+            // UI Inputs
+            const elEnergy = document.getElementById('val-energy');
+            const sliderSpeed = document.getElementById('speed');
+            
+            // Mutation
+            const elMut = document.getElementById('val-mut');
+            const sliderMut = document.getElementById('mutation');
             sliderMut.addEventListener('input', (e) => {
                 const val = parseFloat(e.target.value);
                 elMut.innerText = val.toFixed(2);
                 sim.set_mutation_rate(val); 
+            });
+
+            // Food
+            const elFood = document.getElementById('val-food');
+            const sliderFood = document.getElementById('food');
+            sliderFood.addEventListener('input', (e) => {
+                const val = parseInt(e.target.value);
+                elFood.innerText = val;
+                sim.set_food_count(val);
+            });
+
+            // Predator Speed
+            const elPred = document.getElementById('val-pred');
+            const sliderPred = document.getElementById('pred');
+            sliderPred.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                elPred.innerText = val.toFixed(1);
+                sim.set_predator_speed(val);
+            });
+
+            // Reproduction
+            const elRepro = document.getElementById('val-repro');
+            const sliderRepro = document.getElementById('repro');
+            sliderRepro.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                elRepro.innerText = val.toFixed(0);
+                sim.set_reproduction_threshold(val);
             });
 
             function loop() {
@@ -118,10 +189,8 @@
                 for(let i=0; i<steps; i++) {
                     sim.step();
                 }
-
                 sim.draw(ctx);
                 elEnergy.innerText = sim.get_avg_energy().toFixed(1);
-
                 requestAnimationFrame(loop);
             }
             loop();
