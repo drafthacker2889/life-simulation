@@ -1,1 +1,25 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Emerging Life Simulation</title>
+    <style>
+        body { margin: 0; background: #111; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        canvas { border: 1px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <script type="module">
+        // Note: The package name matches the one in Cargo.toml
+        import init from './pkg/life_simulation.js';
+        
+        async function run() {
+            await init(); 
+            // We don't need to call anything else! 
+            // Rust will automatically start itself using the #[wasm_bindgen(start)] attribute.
+        }
+        run();
+    </script>
+</body>
+</html>
