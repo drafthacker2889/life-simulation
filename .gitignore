@@ -1,1 +1,6 @@
 /target
+/pkg
+**/*.rs.bk
+Cargo.lock
+.DS_Store
+.vscode
