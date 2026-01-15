@@ -5,12 +5,11 @@ use wasm_bindgen::JsCast;
 use js_sys::Math;
 
 // --- THE BRAIN (Neural Network) ---
-// A simple Feed-Forward Network: 3 Inputs -> 6 Hidden Neurons -> 2 Outputs
 #[derive(Clone)]
 struct Brain {
-    weights_input: Vec<f64>,  // Weights from Input to Hidden
-    weights_output: Vec<f64>, // Weights from Hidden to Output
-    biases: Vec<f64>,         // Biases for neurons
+    weights_input: Vec<f64>,  
+    weights_output: Vec<f64>, 
+    biases: Vec<f64>,         
 }
 
 impl Brain {
@@ -20,35 +19,50 @@ impl Brain {
         let mut biases = Vec::new();
 
         // Initialize with random values between -1.0 and 1.0
-        for _ in 0..18 { weights_input.push((Math::random() * 2.0) - 1.0); } // 3 inputs * 6 hidden
-        for _ in 0..12 { weights_output.push((Math::random() * 2.0) - 1.0); } // 6 hidden * 2 output
-        for _ in 0..8  { biases.push((Math::random() * 2.0) - 1.0); }        // 6 hidden + 2 output
+        for _ in 0..18 { weights_input.push((Math::random() * 2.0) - 1.0); } 
+        for _ in 0..12 { weights_output.push((Math::random() * 2.0) - 1.0); } 
+        for _ in 0..8  { biases.push((Math::random() * 2.0) - 1.0); }        
 
         Brain { weights_input, weights_output, biases }
     }
 
-    // The "Thinking" Process
-    // Inputs: [Food_DX, Food_DY, Current_Energy]
-    // Returns: [Turn_Force, Speed_Force]
+    // EVOLUTION FEATURE: Create a mutated copy of the brain
+    fn mutate(&self) -> Brain {
+        let mutation_rate = 0.1; // Magnitude of change
+        let mutation_chance = 0.2; // Probability of a weight changing
+
+        let mutate_vec = |vals: &Vec<f64>| -> Vec<f64> {
+            vals.iter().map(|&v| {
+                if Math::random() < mutation_chance {
+                    v + (Math::random() * 2.0 - 1.0) * mutation_rate
+                } else {
+                    v
+                }
+            }).collect()
+        };
+
+        Brain {
+            weights_input: mutate_vec(&self.weights_input),
+            weights_output: mutate_vec(&self.weights_output),
+            biases: mutate_vec(&self.biases),
+        }
+    }
+
     fn process(&self, inputs: &[f64]) -> Vec<f64> {
-        // 1. Hidden Layer Processing
+        // Hidden Layer
         let mut hidden = vec![0.0; 6];
         for i in 0..6 {
             let mut sum = 0.0;
-            for j in 0..3 {
-                sum += inputs[j] * self.weights_input[i * 3 + j];
-            }
+            for j in 0..3 { sum += inputs[j] * self.weights_input[i * 3 + j]; }
             sum += self.biases[i];
-            hidden[i] = sum.tanh(); // Activation function (-1 to 1)
+            hidden[i] = sum.tanh();
         }
 
-        // 2. Output Layer Processing
+        // Output Layer
         let mut outputs = vec![0.0; 2];
         for i in 0..2 {
             let mut sum = 0.0;
-            for j in 0..6 {
-                sum += hidden[j] * self.weights_output[i * 6 + j];
-            }
+            for j in 0..6 { sum += hidden[j] * self.weights_output[i * 6 + j]; }
             sum += self.biases[6 + i];
             outputs[i] = sum.tanh();
         }
@@ -59,9 +73,9 @@ impl Brain {
 // --- THE SIMULATION WORLD ---
 struct Simulation {
     positions: Vec<(f64, f64)>, 
-    angles: Vec<f64>,      // Direction they are facing (radians)
-    energies: Vec<f64>,    // Health/Battery
-    brains: Vec<Brain>,    // The AI for each agent
+    angles: Vec<f64>,
+    energies: Vec<f64>,
+    brains: Vec<Brain>,
     colors: Vec<&'static str>, 
     
     food: Vec<(f64, f64)>, 
@@ -83,9 +97,9 @@ impl Simulation {
         // Spawn Agents
         for _ in 0..agent_count {
             positions.push((Math::random() * width, Math::random() * height));
-            angles.push(Math::random() * 6.28); // Random direction (0 to 2*PI)
-            energies.push(100.0); // Full battery
-            brains.push(Brain::new()); // Random brain
+            angles.push(Math::random() * 6.28);
+            energies.push(100.0);
+            brains.push(Brain::new());
             
             let color_idx = (Math::random() * 4.0) as usize;
             colors.push(color_palette[color_idx]);
@@ -101,17 +115,18 @@ impl Simulation {
 
     fn update(&mut self) {
         let eat_radius = 10.0; 
+        let total_agents = self.positions.len();
 
-        for i in 0..self.positions.len() {
+        for i in 0..total_agents {
             let (my_x, my_y) = self.positions[i];
 
-            // --- 1. SENSORS (The Eye) ---
-            // Find vector to nearest food
+            // 1. SENSORS (With Fix: Track the Index)
             let mut closest_dist_sq = 999999.0;
             let mut closest_dx = 0.0;
             let mut closest_dy = 0.0;
+            let mut closest_food_index = 0; // Tracks WHICH food is closest
 
-            for (fx, fy) in &self.food {
+            for (idx, (fx, fy)) in self.food.iter().enumerate() {
                 let dx = fx - my_x;
                 let dy = fy - my_y;
                 let dist_sq = dx*dx + dy*dy;
@@ -119,25 +134,21 @@ impl Simulation {
                     closest_dist_sq = dist_sq;
                     closest_dx = dx;
                     closest_dy = dy;
+                    closest_food_index = idx; // Save the index
                 }
             }
 
-            // Normalize inputs so the Brain can understand them (roughly -1.0 to 1.0)
             let input_dx = closest_dx / self.width;
             let input_dy = closest_dy / self.height;
             let input_energy = self.energies[i] / 100.0;
 
-            // --- 2. BRAIN (The Logic) ---
+            // 2. BRAIN PROCESS
             let outputs = self.brains[i].process(&[input_dx, input_dy, input_energy]);
-            
-            // Output 0: Turn Left/Right
             let turn_force = outputs[0] * 0.2; 
-            // Output 1: Speed Up/Down (Max speed 3.0)
             let speed = (outputs[1] + 1.0) * 1.5; 
 
-            // --- 3. PHYSICS (The Body) ---
+            // 3. PHYSICS & MOVEMENT
             self.angles[i] += turn_force;
-
             let vx = self.angles[i].cos() * speed;
             let vy = self.angles[i].sin() * speed;
 
@@ -145,38 +156,56 @@ impl Simulation {
             x += vx;
             y += vy;
 
-            // Screen Wrapping (Pacman style)
+            // Screen Wrap
             if x < 0.0 { x = self.width; }
             if x > self.width { x = 0.0; }
             if y < 0.0 { y = self.height; }
             if y > self.height { y = 0.0; }
             self.positions[i] = (x, y);
 
-            // --- 4. LIFE MECHANICS ---
-            // Metabolism: Moving fast burns energy
+            // 4. METABOLISM & EATING
             self.energies[i] -= speed * 0.2; 
 
-            // Eating: If close to food, gain energy
+            // EATING LOGIC (Fixed: Uses saved index)
             if closest_dist_sq < eat_radius * eat_radius {
                  self.energies[i] += 40.0; 
-                 if self.energies[i] > 150.0 { self.energies[i] = 150.0; }
+                 if self.energies[i] > 200.0 { self.energies[i] = 200.0; } 
                  
-                 // Respawn the eaten food
-                 // (Finding the exact food index again to move it)
-                 for f_idx in 0..self.food.len() {
-                     let (fx, fy) = self.food[f_idx];
-                     if (fx - my_x).abs() < 1.0 && (fy - my_y).abs() < 1.0 {
-                         self.food[f_idx] = (Math::random() * self.width, Math::random() * self.height);
-                         break;
-                     }
-                 }
+                 // Respawn the exact food item we saw
+                 self.food[closest_food_index] = (Math::random() * self.width, Math::random() * self.height);
             }
 
-            // Death: If energy 0, die and respawn with NEW RANDOM BRAIN
+            // 5. EVOLUTION (Tournament Selection)
             if self.energies[i] <= 0.0 {
-                self.positions[i] = (Math::random() * self.width, Math::random() * self.height);
-                self.energies[i] = 100.0;
-                self.brains[i] = Brain::new(); // Try a new strategy
+                // Agent died. Find a survivor to clone.
+                let mut best_parent_idx = 0;
+                let mut max_energy = -1.0;
+
+                // Pick 5 random agents and find the best one
+                for _ in 0..5 {
+                    let r = (Math::random() * total_agents as f64) as usize;
+                    if r != i && self.energies[r] > max_energy {
+                        max_energy = self.energies[r];
+                        best_parent_idx = r;
+                    }
+                }
+
+                if max_energy > 60.0 {
+                    // SUCCESS: Clone Parent Brain + Mutate
+                    self.brains[i] = self.brains[best_parent_idx].mutate();
+                    self.colors[i] = self.colors[best_parent_idx]; // Inherit Tribe Color
+                    
+                    let (px, py) = self.positions[best_parent_idx];
+                    self.positions[i] = (px + (Math::random()-0.5)*10.0, py + (Math::random()-0.5)*10.0);
+                    
+                    self.energies[i] = 60.0; 
+                    self.energies[best_parent_idx] -= 20.0; // Parent pays energy cost
+                } else {
+                    // FAILURE: Random Respawn
+                    self.brains[i] = Brain::new();
+                    self.positions[i] = (Math::random() * self.width, Math::random() * self.height);
+                    self.energies[i] = 100.0;
+                }
             }
         }
     }
@@ -187,7 +216,6 @@ impl Simulation {
 pub fn start() -> Result<(), JsValue> {
     console_error_panic_hook::set_once();
     
-    // Setup Canvas
     let window = web_sys::window().unwrap();
     let document = window.document().unwrap();
     let canvas = document.get_element_by_id("canvas").unwrap()
@@ -206,15 +234,14 @@ pub fn start() -> Result<(), JsValue> {
         Simulation::new(800, 80, width, height)
     ));
 
-    // Start Game Loop
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
     let sim_loop = simulation.clone();
 
+    // GAME LOOP
     *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
         sim_loop.borrow_mut().update();
 
-        // Rendering
         let sim = sim_loop.borrow();
         
         // Background
@@ -229,23 +256,23 @@ pub fn start() -> Result<(), JsValue> {
             context.fill();
         }
 
-        // Draw Agents (Triangles to show direction)
+        // Draw Agents
         for i in 0..sim.positions.len() {
             let (x, y) = sim.positions[i];
             let angle = sim.angles[i];
             
             context.set_fill_style(&JsValue::from_str(sim.colors[i]));
-            // Fade out as they starve
             context.set_global_alpha(sim.energies[i] / 100.0);
             
             context.save();
             context.translate(x, y).unwrap();
             context.rotate(angle).unwrap();
             
+            // Triangle Shape
             context.begin_path();
-            context.move_to(6.0, 0.0);   // Nose
-            context.line_to(-4.0, 4.0);  // Back Left
-            context.line_to(-4.0, -4.0); // Back Right
+            context.move_to(6.0, 0.0);   
+            context.line_to(-4.0, 4.0);  
+            context.line_to(-4.0, -4.0); 
             context.fill();
             
             context.restore();
