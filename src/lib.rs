@@ -27,6 +27,9 @@ pub struct Simulation {
 
     grid: SpatialGrid,
 
+    // MERGED: Added Log Buffer from second block
+    log_buffer: Vec<String>,
+
     width: f64,
     height: f64,
     
@@ -72,12 +75,24 @@ impl Simulation {
         Simulation { 
             positions, angles, energies, brains, colors, voices, 
             food, predators, rocks, mud, grid,
+            // MERGED: Initialize empty log buffer
+            log_buffer: Vec::new(),
             width, height, 
             mutation_rate: BASE_MUTATION_RATE,
             predator_speed: 2.2, 
             reproduction_threshold: 60.0, 
             view_x: 0.0, view_y: 0.0, zoom: 1.0,
         }
+    }
+
+    // --- MERGED: LOGGING FUNCTION ---
+    pub fn fetch_logs(&mut self) -> String {
+        if self.log_buffer.is_empty() {
+            return String::new();
+        }
+        let output = self.log_buffer.join("\n");
+        self.log_buffer.clear();
+        output
     }
 
     // --- INSPECTOR FUNCTIONS ---
@@ -136,7 +151,6 @@ impl Simulation {
         // 1. Refresh Spatial Grid
         self.grid.clear();
         for i in 0..total_agents {
-            // Only add alive agents to grid
             if self.energies[i] > 0.0 {
                 self.grid.insert(self.positions[i].0, self.positions[i].1, i);
             }
@@ -181,7 +195,7 @@ impl Simulation {
             if self.predators[i].1 > self.height { self.predators[i].1 = self.height; }
         }
 
-        // 3. UPDATE AGENTS (OPTIMIZED)
+        // 3. UPDATE AGENTS
         for i in 0..total_agents {
             let (my_x, my_y) = self.positions[i];
             let my_angle = self.angles[i];
@@ -201,7 +215,6 @@ impl Simulation {
             let mut closest_friend_dist = 9999.0;
             let mut hearing_vol = 0.0; 
             
-            // QUERY GRID
             let neighbors = self.grid.query(my_x, my_y);
             
             for &j in &neighbors {
@@ -238,11 +251,14 @@ impl Simulation {
             let mut in_mud = 0.0;
             for (mx, my, mr) in &self.mud { if (my_x - mx).hypot(my_y - my) < *mr { in_mud = 1.0; break; } }
 
+            // MERGED: Using the 13-input logic from the second block (includes Cosine)
             let inputs = [
                 (closest_food_dist / self.width).min(1.0),
                 food_angle_diff.sin(), 
+                food_angle_diff.cos(), // NEW: Front/Back distinction
                 (closest_pred_dist / self.width).min(1.0),
                 pred_angle_diff.sin(),
+                pred_angle_diff.cos(), // NEW: Front/Back distinction
                 self.energies[i] / 100.0,
                 (closest_friend_dist / 200.0).min(1.0),
                 wall_l, wall_c, wall_r,
@@ -285,6 +301,8 @@ impl Simulation {
                 if self.energies[i] > WARRIOR_THRESHOLD {
                     self.predators[closest_pred_index] = (Math::random() * self.width, Math::random() * self.height);
                     self.energies[i] -= BATTLE_COST;
+                    // MERGED: Log the kill
+                    self.log_buffer.push(format!("⚔️ Agent {} Killed a Predator!", i));
                 } else {
                     self.energies[i] = -10.0; 
                 }

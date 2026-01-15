@@ -6,7 +6,6 @@ pub struct Brain {
     pub weights_input: Vec<f64>,  
     pub weights_output: Vec<f64>, 
     pub biases: Vec<f64>,
-    // Memory for Inspector
     pub last_inputs: Vec<f64>,
     pub last_hidden: Vec<f64>,
     pub last_outputs: Vec<f64>,
@@ -18,16 +17,16 @@ impl Brain {
         let mut weights_output = Vec::new();
         let mut biases = Vec::new();
 
-        // 11 Inputs * 8 Hidden
-        for _ in 0..88 { weights_input.push((Math::random() * 2.0) - 1.0); } 
+        // CHANGED: 13 Inputs (Added Cosine for Food/Pred) * 8 Hidden
+        for _ in 0..(13 * 8) { weights_input.push((Math::random() * 2.0) - 1.0); } 
         // 8 Hidden * 3 Outputs
-        for _ in 0..24 { weights_output.push((Math::random() * 2.0) - 1.0); } 
+        for _ in 0..(8 * 3) { weights_output.push((Math::random() * 2.0) - 1.0); } 
         // 8 Hidden + 3 Outputs
-        for _ in 0..11 { biases.push((Math::random() * 2.0) - 1.0); }        
+        for _ in 0..(8 + 3) { biases.push((Math::random() * 2.0) - 1.0); }        
 
         Brain { 
             weights_input, weights_output, biases,
-            last_inputs: vec![0.0; 11],
+            last_inputs: vec![0.0; 13], // Resized buffer
             last_hidden: vec![0.0; 8],
             last_outputs: vec![0.0; 3],
         }
@@ -72,7 +71,8 @@ impl Brain {
         let mut hidden = vec![0.0; 8];
         for i in 0..8 {
             let mut sum = 0.0;
-            for j in 0..11 { sum += inputs[j] * self.weights_input[i * 11 + j]; }
+            // CHANGED: Loop 13 times
+            for j in 0..13 { sum += inputs[j] * self.weights_input[i * 13 + j]; }
             sum += self.biases[i];
             hidden[i] = sum.tanh();
         }
