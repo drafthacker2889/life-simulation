@@ -130,7 +130,7 @@ impl Simulation {
         }
     }
 
-    // --- RESIZE FUNCTION (Preserved) ---
+    // --- RESIZE FUNCTION ---
     pub fn resize(&mut self, width: f64, height: f64) {
         self.width = width;
         self.height = height;
@@ -336,51 +336,10 @@ impl Simulation {
 }
 
 // --- ENTRY POINT ---
-// Fixed: Includes the game loop so the simulation runs automatically
+// Important: I have removed the simulation loop from here.
+// It just initializes the error hook. JS controls the loop now.
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
     console_error_panic_hook::set_once();
-    
-    let window = web_sys::window().unwrap();
-    let document = window.document().unwrap();
-    let canvas = document.get_element_by_id("canvas").unwrap()
-        .dyn_into::<web_sys::HtmlCanvasElement>()?;
-
-    let width = window.inner_width()?.as_f64().unwrap();
-    let height = window.inner_height()?.as_f64().unwrap();
-    canvas.set_width(width as u32);
-    canvas.set_height(height as u32);
-    
-    let context = canvas.get_context("2d")?.unwrap()
-        .dyn_into::<web_sys::CanvasRenderingContext2d>()?;
-
-    // Create World using the new Struct definition
-    let simulation = Rc::new(RefCell::new(
-        Simulation::new(width, height)
-    ));
-
-    let f = Rc::new(RefCell::new(None));
-    let g = f.clone();
-    let sim_loop = simulation.clone();
-    let ctx_loop = context.clone(); // Clone context for the closure
-
-    // GAME LOOP
-    *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
-        // 1. Update Physics/Brain (Predators + Agents)
-        sim_loop.borrow_mut().step();
-
-        // 2. Draw using the method on the struct
-        sim_loop.borrow().draw(&ctx_loop);
-
-        request_animation_frame(f.borrow().as_ref().unwrap());
-    }) as Box<dyn FnMut()>));
-
-    request_animation_frame(g.borrow().as_ref().unwrap());
     Ok(())
-}
-
-fn request_animation_frame(f: &Closure<dyn FnMut()>) {
-    web_sys::window().unwrap()
-        .request_animation_frame(f.as_ref().unchecked_ref())
-        .expect("should register `requestAnimationFrame` OK");
 }
