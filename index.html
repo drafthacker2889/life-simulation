@@ -28,48 +28,131 @@
         label { display: block; margin-bottom: 5px; font-size: 12px; color: #aaa; }
         input[type=range] { width: 100%; margin-bottom: 10px; cursor: pointer; accent-color: #00ffcc; }
         
-        /* Tribe Bars */
         .tribe-bar { height: 6px; border-radius: 3px; margin-top: 2px; transition: width 0.2s; }
-        
-        /* Scrollbar styling */
         #ui::-webkit-scrollbar { width: 6px; }
         #ui::-webkit-scrollbar-thumb { background: #004433; border-radius: 3px; }
+        .season-badge { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; }
+
+        /* Neurochemistry Bars */
+        .chem-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 10px; }
+        .chem-bar-bg { flex: 1; height: 6px; background: #222; border-radius: 3px; overflow: hidden; }
+        .chem-bar { height: 100%; border-radius: 3px; transition: width 0.3s; }
+
+        /* Drive Indicator */
+        .drive-row { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+        .drive-pill { padding: 2px 8px; border-radius: 8px; font-size: 9px; opacity: 0.4; border: 1px solid transparent; }
+        .drive-pill.active { opacity: 1.0; border-color: #fff; }
+
+        /* Memory Heatmap */
+        .memory-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-top: 6px; }
+        .mem-cell { height: 20px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 9px; }
 
         /* INSPECTOR PANEL */
         #inspector {
             position: absolute; top: 20px; right: 20px;
             background: rgba(0, 30, 0, 0.95);
             border: 2px solid #ffcc00;
-            padding: 20px; border-radius: 12px; width: 250px;
-            display: none; /* Hidden by default */
-            z-index: 100;
+            padding: 15px; border-radius: 12px; width: 280px;
+            display: none; z-index: 110;
+            max-height: 85vh; overflow-y: auto;
+            font-size: 11px;
         }
+        #inspector::-webkit-scrollbar { width: 6px; }
+        #inspector::-webkit-scrollbar-thumb { background: #443300; border-radius: 3px; }
         .brain-vis { display: flex; justify-content: space-between; margin-top: 10px; }
-        .neuron-col { display: flex; flex-direction: column; justify-content: space-around; height: 150px; }
-        .neuron { width: 12px; height: 12px; border-radius: 50%; background: #333; border: 1px solid #555; margin: 2px; }
-        .neuron.active { background: #00ff00; box-shadow: 0 0 5px #00ff00; }
+        .neuron-col { display: flex; flex-direction: column; justify-content: center; gap: 1px; }
+        .neuron { width: 10px; height: 10px; border-radius: 50%; background: #222; border: 1px solid #444; }
+        .neuron.active { background: #00ff00; box-shadow: 0 0 4px #00ff00; }
+        .neuron.neg { background: #ff3300; box-shadow: 0 0 4px #ff3300; }
 
         /* LOG PANEL */
         #event-log {
             position: absolute; bottom: 20px; left: 20px; width: 300px; height: 150px;
             background: rgba(0, 0, 0, 0.5); border-left: 2px solid #00ffcc;
             padding: 10px; overflow-y: hidden; display: flex; flex-direction: column-reverse;
-            pointer-events: none; /* Let clicks pass through */
-            font-size: 12px; text-shadow: 1px 1px 0 #000;
-            z-index: 90;
+            pointer-events: none; font-size: 12px; text-shadow: 1px 1px 0 #000; z-index: 90;
         }
         .log-entry { margin-bottom: 4px; animation: fadein 0.5s; }
         @keyframes fadein { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* DASHBOARD */
+        #dashboard {
+            position: absolute; bottom: 20px; right: 20px;
+            background: rgba(0, 20, 0, 0.9);
+            border: 1px solid #00ffcc;
+            padding: 10px; border-radius: 12px;
+            z-index: 95; backdrop-filter: blur(4px);
+            max-width: 240px;
+        }
+        #dashboard h3 { font-size: 11px; margin-bottom: 6px; }
+        .chart-label { font-size: 9px; color: #888; margin-top: 3px; margin-bottom: 2px; }
+        .mini-chart { width: 200px; height: 40px; background: #111; border-radius: 4px; margin-bottom: 4px; }
+
+        /* Buttons */
+        .btn { 
+            padding: 6px 12px; border: 1px solid #00ffcc; background: rgba(0,50,40,0.8); 
+            color: #0f0; cursor: pointer; border-radius: 6px; font-family: inherit; font-size: 11px;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: rgba(0,100,80,0.8); }
+        .btn-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
     </style>
 </head>
 <body>
     <div id="ui">
-        <h3>🧬 Evolution Control</h3>
-        <div style="font-size:10px; color:#aaa; margin-bottom:10px;">🖱️ Click Agent to Inspect</div>
+        <h3>Neural Life Engine</h3>
+        <div style="font-size:10px; color:#aaa; margin-bottom:10px;">Click Agent to Inspect Neural State</div>
         
+        <!-- Season / Tick / Curriculum -->
+        <div class="stat-row">
+            <span>Season:</span>
+            <span id="val-season" class="season-badge" style="background:#2a4a2a; color:#8f8">Spring</span>
+        </div>
+        <div class="stat-row">
+            <span>Tick:</span>
+            <span id="val-tick" style="color:#fff; font-weight:bold;">0</span>
+        </div>
+        <div class="stat-row">
+            <span>Curriculum:</span>
+            <span id="val-curriculum" style="color:#0ff; font-weight:bold;">Easy</span>
+        </div>
+
+        <hr>
         <div class="stat-row">
             <span>Avg Energy:</span>
             <span id="val-energy" style="color: #fff; font-weight: bold;">100</span>
+        </div>
+        <div class="stat-row">
+            <span>Births:</span>
+            <span id="val-births" style="color: #0f0;">0</span>
+        </div>
+        <div class="stat-row">
+            <span>Deaths:</span>
+            <span id="val-deaths" style="color: #f33;">0</span>
+        </div>
+        <div class="stat-row">
+            <span>Max Gen:</span>
+            <span id="val-gen" style="color: #ff0;">0</span>
+        </div>
+        <div class="stat-row">
+            <span>Species:</span>
+            <span id="val-species" style="color: #f0f;">1</span>
+        </div>
+        <div class="stat-row">
+            <span>Shelters:</span>
+            <span id="val-shelters" style="color: #b48c3c;">0</span>
+        </div>
+        <div class="stat-row">
+            <span>Alive:</span>
+            <span id="val-alive" style="color: #0f0;">0</span>
+        </div>
+        <div class="stat-row">
+            <span>Predators:</span>
+            <span id="val-predators" style="color: #f44;">0</span>
+        </div>
+        <div class="stat-row">
+            <span>Males / Females:</span>
+            <span><span id="val-males" style="color: #4488ff;">0</span> / <span id="val-females" style="color: #ff69b4;">0</span></span>
         </div>
 
         <hr>
@@ -77,13 +160,10 @@
         <div style="margin-bottom: 15px;">
             <div class="stat-row"><span style="color:#ff00cc">Pink</span><span id="count-pink">0</span></div>
             <div class="tribe-bar" id="bar-pink" style="background:#ff00cc; width:0%"></div>
-
             <div class="stat-row" style="margin-top:5px"><span style="color:#ccff00">Green</span><span id="count-green">0</span></div>
             <div class="tribe-bar" id="bar-green" style="background:#ccff00; width:0%"></div>
-
             <div class="stat-row" style="margin-top:5px"><span style="color:#00ccff">Blue</span><span id="count-blue">0</span></div>
             <div class="tribe-bar" id="bar-blue" style="background:#00ccff; width:0%"></div>
-
             <div class="stat-row" style="margin-top:5px"><span style="color:#ffcc00">Orange</span><span id="count-orange">0</span></div>
             <div class="tribe-bar" id="bar-orange" style="background:#ffcc00; width:0%"></div>
         </div>
@@ -96,39 +176,119 @@
         <input type="range" id="mutation" min="0.01" max="1.0" step="0.01" value="0.1">
 
         <hr>
-
-        <label>Food Count: <span id="val-food" style="color:#fff">100</span></label>
-        <input type="range" id="food" min="10" max="300" step="10" value="100">
+        <label>Food Count: <span id="val-food" style="color:#fff">120</span></label>
+        <input type="range" id="food" min="10" max="300" step="10" value="120">
 
         <label>Predator Speed: <span id="val-pred" style="color:#fff">2.2</span></label>
         <input type="range" id="pred" min="0" max="5.0" step="0.1" value="2.2">
 
         <label>Repro Threshold: <span id="val-repro" style="color:#fff">60</span></label>
         <input type="range" id="repro" min="10" max="150" step="5" value="60">
+
+        <hr>
+        <div class="btn-row">
+            <button class="btn" id="btn-save">Save State</button>
+            <button class="btn" id="btn-load">Load State</button>
+            <button class="btn" id="btn-bench">Benchmark 1K</button>
+        </div>
+        <input type="file" id="file-load" accept=".json" style="display:none">
     </div>
 
+    <!-- INSPECTOR PANEL -->
     <div id="inspector">
-        <h3>🧠 Brain Surgeon</h3>
-        <div style="font-size:12px; color:#fff;">Agent ID: <span id="agent-id">?</span></div>
+        <h3>Neural Inspector</h3>
+        <div style="font-size:12px; color:#fff;">Agent #<span id="agent-id">?</span></div>        <div class="stat-row"><span>Gender:</span><span id="agent-gender" style="color:#ff69b4">?</span></div>        <div class="stat-row"><span>Gender:</span><span id="agent-gender" style="color:#ff69b4">?</span></div>
+        <div class="stat-row"><span>Age:</span><span id="agent-age" style="color:#fff">0</span></div>
+        <div class="stat-row"><span>Generation:</span><span id="agent-gen" style="color:#ff0">0</span></div>
+        <div class="stat-row"><span>Lineage:</span><span id="agent-lineage" style="color:#aaa">?</span></div>
+        <div class="stat-row"><span>Value Est:</span><span id="agent-value" style="color:#0ff">0</span></div>
+
         <hr>
-        <div style="font-size:10px; text-align:center; color:#aaa;">INPUTS | HIDDEN | OUTPUTS</div>
+        <div style="font-size:11px; color:#00ffcc;">NEUROCHEMISTRY</div>
+        <div style="margin-top:4px;">
+            <div class="chem-row"><span style="width:55px; color:#ff0">Dopamine</span><div class="chem-bar-bg"><div class="chem-bar" id="chem-dopamine" style="background:#ff0; width:50%"></div></div></div>
+            <div class="chem-row"><span style="width:55px; color:#f55">Cortisol</span><div class="chem-bar-bg"><div class="chem-bar" id="chem-cortisol" style="background:#f55; width:20%"></div></div></div>
+            <div class="chem-row"><span style="width:55px; color:#f0f">Oxytocin</span><div class="chem-bar-bg"><div class="chem-bar" id="chem-oxytocin" style="background:#f0f; width:30%"></div></div></div>
+            <div class="chem-row"><span style="width:55px; color:#0af">Serotonin</span><div class="chem-bar-bg"><div class="chem-bar" id="chem-serotonin" style="background:#0af; width:50%"></div></div></div>
+        </div>
+
+        <hr>
+        <div style="font-size:11px; color:#00ffcc;">ACTIVE DRIVE</div>
+        <div class="drive-row" id="drive-row">
+            <span class="drive-pill" style="background:#0a2; color:#0f0">Hunger</span>
+            <span class="drive-pill" style="background:#200; color:#f00">Fear</span>
+            <span class="drive-pill" style="background:#202; color:#f0f">Repro</span>
+            <span class="drive-pill" style="background:#022; color:#0ff">Social</span>
+            <span class="drive-pill" style="background:#220; color:#ff0">Curiosity</span>
+        </div>
+
+        <hr>
+        <div style="font-size:11px; color:#00ffcc;">LONG-TERM MEMORY</div>
+        <div style="font-size:9px; color:#666; margin-top:2px;">Quadrant food/danger scores</div>
+        <div class="memory-grid" id="memory-grid">
+            <div class="mem-cell" style="background:#111">Q0</div>
+            <div class="mem-cell" style="background:#111">Q1</div>
+            <div class="mem-cell" style="background:#111">Q2</div>
+            <div class="mem-cell" style="background:#111">Q3</div>
+        </div>
+
+        <hr>
+        <div style="font-size:11px; color:#00ffcc;">EPISODIC MEMORY</div>
+        <div id="episodic-list" style="font-size:9px; color:#aaa; margin-top:4px; max-height:60px; overflow-y:auto;">No events</div>
+
+        <hr>
+        <div style="font-size:11px; color:#00ffcc;">SOCIAL</div>
+        <div class="stat-row"><span>Reputation:</span><span id="agent-rep" style="color:#fff">0.5</span></div>
+        <div class="stat-row"><span>Cooperations:</span><span id="agent-coop" style="color:#0f0">0</span></div>
+        <div class="stat-row"><span>Betrayals:</span><span id="agent-betray" style="color:#f33">0</span></div>
+        <div class="stat-row"><span>Deception:</span><span id="agent-deception" style="color:#fa0">0</span></div>
+        <div class="stat-row"><span>Signal Type:</span><span id="agent-sig" style="color:#aaa">Neutral</span></div>
+
+        <hr>
+        <div style="font-size:10px; text-align:center; color:#aaa;">ENCODED | MEMORY | CORE | POLICY</div>
         <div class="brain-vis">
-            <div class="neuron-col" id="vis-inputs"></div>
+            <div class="neuron-col" id="vis-encoded"></div>
+            <div class="neuron-col" id="vis-memory"></div>
             <div class="neuron-col" id="vis-hidden"></div>
             <div class="neuron-col" id="vis-outputs"></div>
         </div>
-        <div style="margin-top:10px; font-size:10px; color:#aaa;">
-            Outputs: Turn / Speed / Voice
+        <div style="margin-top:6px; font-size:9px; color:#666;">
+            Policy: Turn|Speed|Voice|Build|Flee|Mate|Explore
         </div>
-        <button onclick="document.getElementById('inspector').style.display='none'" style="margin-top:10px; width:100%; background:#333; color:#fff; border:none; padding:5px; cursor:pointer;">Close</button>
+
+        <hr>
+        <div style="font-size:11px; color:#00ffcc;">CURIOSITY</div>
+        <div class="stat-row"><span>Pred Error:</span><span id="agent-pred-err">0</span></div>
+        <div class="stat-row"><span>Novelty:</span><span id="agent-novelty">0</span></div>
+        <div class="stat-row"><span>Intrinsic Rwd:</span><span id="agent-intrinsic">0</span></div>
+
+        <hr>
+        <div style="font-size:11px; color:#00ffcc;">BEHAVIOR VECTOR</div>
+        <div class="stat-row"><span>Avg Speed:</span><span id="bv-speed">0</span></div>
+        <div class="stat-row"><span>Avg Turn:</span><span id="bv-turn">0</span></div>
+        <div class="stat-row"><span>Food Eff:</span><span id="bv-food">0</span></div>
+        <div class="stat-row"><span>Social Score:</span><span id="bv-social">0</span></div>
+
+        <button onclick="document.getElementById('inspector').style.display='none'" style="margin-top:10px; width:100%; background:#333; color:#fff; border:none; padding:5px; cursor:pointer; border-radius:4px;">Close</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard">
+        <h3>Dashboard</h3>
+        <div class="chart-label">Avg Energy</div>
+        <canvas class="mini-chart" id="chart-energy" width="200" height="40"></canvas>
+        <div class="chart-label">Population</div>
+        <canvas class="mini-chart" id="chart-population" width="200" height="40"></canvas>
+        <div class="chart-label">Cooperation (cumulative)</div>
+        <canvas class="mini-chart" id="chart-coop" width="200" height="40"></canvas>
+        <div class="chart-label">Tribe Diversity (entropy)</div>
+        <canvas class="mini-chart" id="chart-diversity" width="200" height="40"></canvas>
     </div>
 
     <div id="event-log"></div>
-
     <canvas id="canvas"></canvas>
 
     <script type="module">
-        // Ensure this path matches your actual pkg output
         import init, { Simulation } from './pkg/life_simulation.js';
 
         async function run() {
@@ -150,17 +310,15 @@
                 canvas.style.height = window.innerHeight + "px";
                 if (window.sim) window.sim.resize(size.w, size.h);
             }
-            // Init resize
             resize();
             window.addEventListener('resize', resize);
 
             const sim = Simulation.new(size.w, size.h);
             window.sim = sim; 
             
-            // Interaction State
             let selectedAgentId = -1;
 
-            // Camera Inputs
+            // Camera
             canvas.addEventListener('wheel', (e) => { 
                 e.preventDefault(); 
                 sim_zoom *= e.deltaY > 0 ? 0.9 : 1.1; 
@@ -168,31 +326,22 @@
             });
             
             let isDragging = false, startX, startY;
-            canvas.addEventListener('mousedown', (e) => { 
-                isDragging = true; startX = e.clientX; startY = e.clientY; 
-            });
+            canvas.addEventListener('mousedown', (e) => { isDragging = true; startX = e.clientX; startY = e.clientY; });
             canvas.addEventListener('mousemove', (e) => { 
                 if (!isDragging) return; 
-                let dx = startX - e.clientX; 
-                let dy = startY - e.clientY;
-                sim.pan(dx, dy); 
-                sim_vx += dx/sim_zoom; 
-                sim_vy += dy/sim_zoom;
+                let dx = startX - e.clientX; let dy = startY - e.clientY;
+                sim.pan(dx, dy); sim_vx += dx/sim_zoom; sim_vy += dy/sim_zoom;
                 startX = e.clientX; startY = e.clientY; 
             });
             window.addEventListener('mouseup', () => isDragging = false);
 
-            // CLICK TO INSPECT
             canvas.addEventListener('click', (e) => {
-                if (isDragging) return; // Don't inspect if we just dragged
+                if (isDragging) return;
                 const rect = canvas.getBoundingClientRect();
                 const x = (e.clientX - rect.left) * (window.devicePixelRatio||1);
                 const y = (e.clientY - rect.top) * (window.devicePixelRatio||1);
-                
-                // Calculate World Coords approximately based on current view
                 const worldX = (x / sim_zoom) + sim_vx;
                 const worldY = (y / sim_zoom) + sim_vy;
-
                 const id = sim.get_agent_at(worldX, worldY);
                 if (id !== -1) {
                     selectedAgentId = id;
@@ -203,6 +352,13 @@
 
             // UI Elements
             const elEnergy = document.getElementById('val-energy');
+            const elTick = document.getElementById('val-tick');
+            const elBirths = document.getElementById('val-births');
+            const elDeaths = document.getElementById('val-deaths');
+            const elGen = document.getElementById('val-gen');
+            const elSeason = document.getElementById('val-season');
+            const elCurriculum = document.getElementById('val-curriculum');
+            const elSpecies = document.getElementById('val-species');
             const sliderSpeed = document.getElementById('speed');
             const sliderMut = document.getElementById('mutation');
             const sliderFood = document.getElementById('food');
@@ -210,78 +366,250 @@
             const sliderRepro = document.getElementById('repro');
             const logPanel = document.getElementById('event-log');
             
-            // Stats Elements
             const elP = document.getElementById('count-pink'); const barP = document.getElementById('bar-pink');
             const elG = document.getElementById('count-green'); const barG = document.getElementById('bar-green');
             const elB = document.getElementById('count-blue'); const barB = document.getElementById('bar-blue');
             const elO = document.getElementById('count-orange'); const barO = document.getElementById('bar-orange');
 
-            // Events
-            sliderMut.addEventListener('input', (e) => { 
-                document.getElementById('val-mut').innerText = e.target.value; 
-                sim.set_mutation_rate(parseFloat(e.target.value)); 
+            sliderMut.addEventListener('input', (e) => { document.getElementById('val-mut').innerText = e.target.value; sim.set_mutation_rate(parseFloat(e.target.value)); });
+            sliderFood.addEventListener('input', (e) => { document.getElementById('val-food').innerText = e.target.value; sim.set_food_count(parseInt(e.target.value)); });
+            sliderPred.addEventListener('input', (e) => { document.getElementById('val-pred').innerText = e.target.value; sim.set_predator_speed(parseFloat(e.target.value)); });
+            sliderRepro.addEventListener('input', (e) => { document.getElementById('val-repro').innerText = e.target.value; sim.set_reproduction_threshold(parseFloat(e.target.value)); });
+
+            // Save / Load
+            document.getElementById('btn-save').addEventListener('click', () => {
+                const state = sim.export_state();
+                const json = JSON.stringify(state);
+                const blob = new Blob([json], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'life_sim_save_' + Date.now() + '.json';
+                a.click();
+                URL.revokeObjectURL(url);
             });
-            sliderFood.addEventListener('input', (e) => { 
-                document.getElementById('val-food').innerText = e.target.value; 
-                sim.set_food_count(parseInt(e.target.value)); 
+
+            document.getElementById('btn-load').addEventListener('click', () => {
+                document.getElementById('file-load').click();
             });
-            sliderPred.addEventListener('input', (e) => { 
-                document.getElementById('val-pred').innerText = e.target.value; 
-                sim.set_predator_speed(parseFloat(e.target.value)); 
+
+            document.getElementById('file-load').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const state = JSON.parse(ev.target.result);
+                        sim.import_state(state);
+                    } catch(err) {
+                        console.error('Failed to load state:', err);
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
             });
-            sliderRepro.addEventListener('input', (e) => { 
-                document.getElementById('val-repro').innerText = e.target.value; 
-                sim.set_reproduction_threshold(parseFloat(e.target.value)); 
+
+            // Benchmark
+            document.getElementById('btn-bench').addEventListener('click', () => {
+                const result = sim.run_benchmark(1000);
+                console.log('Benchmark result:', result);
+                alert(`Benchmark (1000 ticks):\nBirths: ${result.births}\nDeaths: ${result.deaths}\nAvg Energy: ${result.avg_energy?.toFixed(1)}\nMax Gen: ${result.max_generation}\nSpecies: ${result.species}`);
             });
+
+            // Mini chart drawing
+            function drawMiniChart(canvasId, data, color) {
+                const c = document.getElementById(canvasId);
+                const cx = c.getContext('2d');
+                const w = c.width, h = c.height;
+                cx.clearRect(0, 0, w, h);
+                if (!data || data.length < 2) return;
+                
+                let minV = Infinity, maxV = -Infinity;
+                for (let i = 0; i < data.length; i++) {
+                    if (data[i] < minV) minV = data[i];
+                    if (data[i] > maxV) maxV = data[i];
+                }
+                if (maxV === minV) maxV = minV + 1;
+
+                cx.strokeStyle = color;
+                cx.lineWidth = 1.5;
+                cx.beginPath();
+                for (let i = 0; i < data.length; i++) {
+                    const x = (i / (data.length - 1)) * w;
+                    const y = h - ((data[i] - minV) / (maxV - minV)) * (h - 4) - 2;
+                    if (i === 0) cx.moveTo(x, y);
+                    else cx.lineTo(x, y);
+                }
+                cx.stroke();
+
+                // Min/Max labels
+                cx.fillStyle = '#666';
+                cx.font = '8px monospace';
+                cx.fillText(maxV.toFixed(0), 2, 10);
+                cx.fillText(minV.toFixed(0), 2, h - 2);
+            }
+
+            const seasonNames = ['Spring','Summer','Autumn','Winter'];
+            const seasonColors = ['#2a4a2a','#4a4a00','#4a2a00','#1a1a3a'];
+            const seasonTextColors = ['#8f8','#ff0','#fa3','#8af'];
+            const curriculumNames = ['Easy','Medium','Hard'];
+            const signalNames = ['Neutral','Food Here','Danger!','Mate Call'];
+            const episodicTypes = ['Food','Poison','Predator','Social'];
 
             function updateInspector() {
                 if (selectedAgentId === -1) return;
-                const brainData = sim.get_agent_brain(selectedAgentId);
-                if (!brainData) return; // Agent might have died
+                const b = sim.get_agent_brain(selectedAgentId);
+                if (!b) return;
 
-                // Helper to draw neurons
+                document.getElementById('agent-id').innerText = selectedAgentId;
+
+                const ageTicks = b.age || 0;
+                const ageYears = (ageTicks / 4800).toFixed(1);
+                document.getElementById('agent-age').innerText = ageYears + 'y (' + ageTicks + 't)';
+                document.getElementById('agent-gen').innerText = b.generation || 0;
+                document.getElementById('agent-lineage').innerText = '#' + (b.lineage_id || 0);
+                document.getElementById('agent-value').innerText = (b.last_value || 0).toFixed(3);
+
+                // Gender display
+                const isFemale = sim.get_agent_gender(selectedAgentId);
+                const genderEl = document.getElementById('agent-gender');
+                genderEl.innerText = isFemale ? '♀ Female' : '♂ Male';
+                genderEl.style.color = isFemale ? '#ff69b4' : '#4488ff';
+
+                if (b.neurochemistry) {
+                    document.getElementById('chem-dopamine').style.width = (b.neurochemistry.dopamine * 100) + '%';
+                    document.getElementById('chem-cortisol').style.width = (b.neurochemistry.cortisol * 100) + '%';
+                    document.getElementById('chem-oxytocin').style.width = (b.neurochemistry.oxytocin * 100) + '%';
+                    document.getElementById('chem-serotonin').style.width = (b.neurochemistry.serotonin * 100) + '%';
+                }
+
+                const pills = document.getElementById('drive-row').children;
+                for (let d = 0; d < pills.length; d++) {
+                    pills[d].className = 'drive-pill' + (d === (b.last_drive || 0) ? ' active' : '');
+                }
+
+                if (b.memory && b.memory.long_term) {
+                    const grid = document.getElementById('memory-grid');
+                    const ltm = b.memory.long_term;
+                    for (let q = 0; q < 4; q++) {
+                        const food = ltm[q * 2] || 0;
+                        const danger = ltm[q * 2 + 1] || 0;
+                        const g = Math.round(Math.max(0, food) * 200);
+                        const r = Math.round(Math.max(0, danger) * 200);
+                        grid.children[q].style.background = `rgb(${r},${g},30)`;
+                        grid.children[q].innerText = `F:${food.toFixed(2)} D:${danger.toFixed(2)}`;
+                    }
+                }
+
+                // Episodic memory
+                const epList = document.getElementById('episodic-list');
+                if (b.episodic && b.episodic.events && b.episodic.events.length > 0) {
+                    epList.innerHTML = b.episodic.events.map(e => 
+                        `<div style="color:${e.reward > 0 ? '#0f0' : '#f33'}">${episodicTypes[e.event_type] || '?'} r:${e.reward.toFixed(1)} @${e.tick}</div>`
+                    ).join('');
+                } else {
+                    epList.innerHTML = 'No events';
+                }
+
+                if (b.social) {
+                    document.getElementById('agent-rep').innerText = (b.social.reputation || 0).toFixed(2);
+                    document.getElementById('agent-coop').innerText = b.social.cooperation_count || 0;
+                    document.getElementById('agent-betray').innerText = b.social.betrayal_count || 0;
+                    document.getElementById('agent-deception').innerText = (b.social.deception_tendency || 0).toFixed(2);
+                    document.getElementById('agent-sig').innerText = signalNames[b.social.signal_type || 0];
+                }
+
                 const drawLayer = (id, values) => {
                     const container = document.getElementById(id);
                     container.innerHTML = '';
-                    if(!values) return;
+                    if (!values) return;
                     values.forEach(v => {
                         const el = document.createElement('div');
                         el.className = 'neuron';
-                        // Visualize: Simple active/inactive
-                        if (Math.abs(v) > 0.5) el.classList.add('active');
-                        el.style.opacity = Math.abs(v);
+                        if (v > 0.3) el.classList.add('active');
+                        else if (v < -0.3) el.classList.add('neg');
+                        el.style.opacity = Math.min(1, 0.3 + Math.abs(v));
                         container.appendChild(el);
                     });
                 };
-                
-                drawLayer('vis-inputs', brainData.last_inputs);
-                drawLayer('vis-hidden', brainData.last_hidden);
-                drawLayer('vis-outputs', brainData.last_outputs);
+                drawLayer('vis-encoded', b.last_encoded);
+                drawLayer('vis-memory', b.memory ? b.memory.hidden_state : null);
+                drawLayer('vis-hidden', b.last_hidden);
+                drawLayer('vis-outputs', b.last_outputs);
+
+                if (b.curiosity) {
+                    document.getElementById('agent-pred-err').innerText = (b.curiosity.prediction_error || 0).toFixed(4);
+                    document.getElementById('agent-novelty').innerText = (b.curiosity.novelty_bonus || 0).toFixed(3);
+                }
+                const intrinsic = ((b.curiosity?.prediction_error || 0) * 0.3 + (b.curiosity?.novelty_bonus || 0) * 0.2).toFixed(4);
+                document.getElementById('agent-intrinsic').innerText = intrinsic;
+
+                // Behavior vector
+                if (b.behavior) {
+                    document.getElementById('bv-speed').innerText = (b.behavior.avg_speed || 0).toFixed(3);
+                    document.getElementById('bv-turn').innerText = (b.behavior.avg_turn || 0).toFixed(3);
+                    document.getElementById('bv-food').innerText = (b.behavior.food_efficiency || 0).toFixed(3);
+                    document.getElementById('bv-social').innerText = (b.behavior.social_score || 0).toFixed(3);
+                }
+            }
+
+            let chartFrame = 0;
+            function updateDashboard() {
+                chartFrame++;
+                if (chartFrame % 30 !== 0) return; // Update charts every 30 frames
+                try {
+                    const energyData = sim.get_metrics_energy();
+                    const popData = sim.get_metrics_population();
+                    const coopData = sim.get_metrics_cooperation();
+                    const divData = sim.get_metrics_diversity();
+                    drawMiniChart('chart-energy', energyData, '#00ff88');
+                    drawMiniChart('chart-population', popData, '#00aaff');
+                    drawMiniChart('chart-coop', coopData, '#ffaa00');
+                    drawMiniChart('chart-diversity', divData, '#ff00ff');
+                } catch(e) {}
             }
 
             function loop() {
                 const steps = parseInt(sliderSpeed.value);
-                for(let i=0; i<steps; i++) sim.step();
+                for (let i = 0; i < steps; i++) sim.step();
                 sim.draw(ctx);
                 elEnergy.innerText = sim.get_avg_energy().toFixed(1);
-                
-                // Update Tribe Stats (Throttled for performance)
+
+                elTick.innerText = sim.get_tick();
+                elBirths.innerText = sim.get_total_births();
+                elDeaths.innerText = sim.get_total_deaths();
+                elGen.innerText = sim.get_max_generation();
+                const s = sim.get_season();
+                elSeason.innerText = seasonNames[s] || '?';
+                elSeason.style.background = seasonColors[s] || '#222';
+                elSeason.style.color = seasonTextColors[s] || '#fff';
+
+                const cs = sim.get_curriculum_stage();
+                elCurriculum.innerText = curriculumNames[cs] || '?';
+
+                // Tribe stats + species + shelters (throttled)
                 if (performance.now() % 50 < 20) {
                     const stats = sim.get_tribe_stats();
-                    const total = 800; // Approx total for percentages
-                    
-                    elP.innerText = stats[0]; barP.style.width = (stats[0]/total*100) + "%";
-                    elG.innerText = stats[1]; barG.style.width = (stats[1]/total*100) + "%";
-                    elB.innerText = stats[2]; barB.style.width = (stats[2]/total*100) + "%";
-                    elO.innerText = stats[3]; barO.style.width = (stats[3]/total*100) + "%";
+                    const total = stats[0] + stats[1] + stats[2] + stats[3];
+                    const pct = total > 0 ? total : 1;
+                    elP.innerText = stats[0]; barP.style.width = (stats[0]/pct*100) + "%";
+                    elG.innerText = stats[1]; barG.style.width = (stats[1]/pct*100) + "%";
+                    elB.innerText = stats[2]; barB.style.width = (stats[2]/pct*100) + "%";
+                    elO.innerText = stats[3]; barO.style.width = (stats[3]/pct*100) + "%";
+                    elSpecies.innerText = sim.get_species_count();
+                    document.getElementById('val-shelters').innerText = sim.get_shelter_count();
+                    document.getElementById('val-alive').innerText = sim.get_alive_count();
+                    document.getElementById('val-predators').innerText = sim.get_alive_predators();
+                    document.getElementById('val-males').innerText = sim.get_male_count();
+                    document.getElementById('val-females').innerText = sim.get_female_count();
                 }
                 
                 if (document.getElementById('inspector').style.display === 'block') {
                     updateInspector();
                 }
 
-                // LOGGING LOGIC
-                // Fetches logs from Rust buffer and displays them
+                updateDashboard();
+
                 const logs = sim.fetch_logs();
                 if (logs) {
                     const lines = logs.split('\n');
@@ -290,9 +618,8 @@
                         const el = document.createElement('div');
                         el.className = 'log-entry';
                         el.innerText = line;
-                        logPanel.prepend(el); // Add to top
-                        // Limit to 5 logs to prevent clutter
-                        if (logPanel.children.length > 5) logPanel.removeChild(logPanel.lastChild);
+                        logPanel.prepend(el);
+                        if (logPanel.children.length > 8) logPanel.removeChild(logPanel.lastChild);
                     });
                 }
 
